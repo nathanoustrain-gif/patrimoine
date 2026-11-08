@@ -260,6 +260,7 @@ function pickBest(
 export interface RelinkResult {
   apiId: string;
   apiLang: string;
+  name?: string;
   marketPrice?: number;
   marketPriceDate?: number;
   priceLang?: string;
@@ -282,6 +283,8 @@ export async function relinkCard(card: {
   number?: string;
   setName?: string;
   language?: string;
+  image?: string;
+  imageLarge?: string;
 }): Promise<RelinkResult | null> {
   if (!card.name) return null;
   const MATCH = "en";
@@ -331,18 +334,21 @@ export async function relinkCard(card: {
 
   if (!chosen) return null;
 
-  // Prix dans la langue de la carte (repli auto vers une autre langue si besoin).
-  const priced = await fetchCardDetail(chosen.apiId, priceLang);
-  const src = priced && priced.marketPrice != null ? priced : chosen;
+  // Détail dans la langue de la carte : prix + nom/extension localisés (français).
+  const loc = await fetchCardDetail(chosen.apiId, priceLang);
+  const src = loc || chosen;
   return {
     apiId: chosen.apiId,
     apiLang: priceLang,
-    marketPrice: src.marketPrice,
-    marketPriceDate: src.marketPriceDate,
-    priceLang: src.priceLang,
-    image: src.image || chosen.image,
-    imageLarge: src.imageLarge || chosen.imageLarge,
-    setName: card.setName || chosen.setName,
+    name: src.name || card.name,
+    marketPrice: src.marketPrice ?? chosen.marketPrice,
+    marketPriceDate: src.marketPriceDate ?? chosen.marketPriceDate,
+    priceLang: src.priceLang ?? chosen.priceLang,
+    // On garde l'image existante (scrydex, qui fonctionne) si elle est là ;
+    // TCGdex n'a pas d'image pour toutes les cartes.
+    image: card.image || src.image || chosen.image,
+    imageLarge: card.imageLarge || src.imageLarge || chosen.imageLarge,
+    setName: src.setName || card.setName,
     number: card.number || chosen.number,
   };
 }

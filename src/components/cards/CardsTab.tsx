@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Card } from "../../db/db";
 import { fmtEUR, fmtDate } from "../../lib/format";
-import { fetchCardDetail, relinkCard } from "../../lib/tcgcards";
+import { fetchCardDetail, relinkCard, type ApiCard } from "../../lib/tcgcards";
 import { upsertTodaySnapshot, cardPrice } from "../../lib/collection";
 import { sortItems, SortSelect, type SortKey } from "../SortSelect";
 import Sheet from "../Sheet";
@@ -33,26 +33,51 @@ export default function CardsTab() {
     setTimeout(() => setMsg(null), 2600);
   }
 
-  // Répare une carte sans prix : complète via son id, ou la relie à TCGdex
-  // (id cassé ou absent). Renvoie "updated" | "relinked" | "none".
-  async function repairCard(c: Card): Promise<"updated" | "relinked" | "none"> {
+  // Image scrydex reconstruite (série 30 ans, non imagée dans TCGdex).
+  function scrydex30thImage(c: Card): { image?: string; imageLarge?: string } {
+    const m = /^(30th-c|30th)-/.exec(c.apiId || "");
+    if (!m || !c.number) return {};
+    const prefix = m[1] === "30th-c" ? "me55c" : "me55";
+    const base = `https://images.scrydex.com/pokemon/${prefix}-${c.number}`;
+    return { image: base + "/small", imageLarge: base + "/large" };
+  }
+
+  // Met à jour une carte depuis TCGdex : prix, nom/extension localisés (français),
+  // et image si manquante (TCGdex, sinon scrydex).
+  function buildUpdate(c: Card, d: ApiCard): Partial<Card> {
+    const u: Partial<Card> = { updatedAt: Date.now() };
+    if (d.marketPrice != null) {
+      u.marketPrice = d.marketPrice;
+      u.marketPriceDate = d.marketPriceDate;
+      u.priceLang = d.priceLang;
+    }
+    if (d.name && d.name !== c.name) u.name = d.name;
+    if (d.setName && d.setName !== c.setName) u.setName = d.setName;
+    if (!c.image) {
+      if (d.image) {
+        u.image = d.image;
+        u.imageLarge = d.imageLarge;
+      } else {
+        const sx = scrydex30thImage(c);
+        if (sx.image) {
+          u.image = sx.image;
+          u.imageLarge = sx.imageLarge;
+        }
+      }
+    }
+    return u;
+  }
+
+  // Répare une carte : complète via son id (prix/nom/image), ou la relie à
+  // TCGdex. Renvoie "fixed" | "relinked" | "none".
+  async function repairCard(c: Card): Promise<"fixed" | "relinked" | "none"> {
     if (c.apiId) {
       const d = await fetchCardDetail(c.apiId, c.apiLang || "fr");
       if (d) {
-        // id valide : on met à jour le prix si dispo, mais on ne relie pas.
-        if (d.marketPrice != null) {
-          await db.cards.update(c.id, {
-            marketPrice: d.marketPrice,
-            marketPriceDate: d.marketPriceDate,
-            priceLang: d.priceLang,
-            updatedAt: Date.now(),
-          });
-          return "updated";
-        }
-        return "none";
+        await db.cards.update(c.id, buildUpdate(c, d));
+        return "fixed";
       }
     }
-    // pas d'id, ou id introuvable dans TCGdex → reliaison par nom + numéro + extension
     const rl = await relinkCard(c);
     if (rl && rl.marketPrice != null) {
       await db.cards.update(c.id, { ...rl, updatedAt: Date.now() });
@@ -61,24 +86,28 @@ export default function CardsTab() {
     return "none";
   }
 
-  // Auto-remplissage en arrière-plan des cartes sans prix à l'ouverture.
+  // Auto-réparation en arrière-plan des cartes sans prix OU sans image.
   useEffect(() => {
     if (!cards || healed) return;
-    const missing = cards.filter(
-      (c) => c.marketPrice == null && c.manualPrice == null && c.name,
+    const todo = cards.filter(
+      (c) =>
+        c.manualPrice == null &&
+        c.name &&
+        (c.marketPrice == null || !c.image),
     );
     setHealed(true);
-    if (missing.length === 0) return;
+    if (todo.length === 0) return;
     (async () => {
-      let relinked = 0;
-      for (const c of missing) {
+      let n = 0;
+      for (const c of todo) {
         try {
-          if ((await repairCard(c)) === "relinked") relinked++;
+          const r = await repairCard(c);
+          if (r !== "none") n++;
         } catch {
           /* on continue */
         }
       }
-      if (relinked > 0) flash(`${relinked} carte(s) reliée(s) et prix récupérés`);
+      if (n > 0) flash(`${n} carte(s) réparée(s)`);
     })();
   }, [cards, healed]);
 
@@ -104,25 +133,10 @@ export default function CardsTab() {
     for (const c of cards!) {
       if (c.manualPrice != null) continue; // prix forcé : on n'y touche pas
       try {
-        if (c.apiId && c.marketPrice != null) {
-          // carte déjà reliée et cotée : simple rafraîchissement
-          const fresh = await fetchCardDetail(c.apiId, c.apiLang || "fr");
-          if (fresh && fresh.marketPrice != null) {
-            await db.cards.update(c.id, {
-              marketPrice: fresh.marketPrice,
-              marketPriceDate: fresh.marketPriceDate,
-              priceLang: fresh.priceLang,
-              updatedAt: Date.now(),
-            });
-            updated++;
-          }
-        } else {
-          // carte sans prix : réparation (complétion ou reliaison)
-          const res = await repairCard(c);
-          if (res === "updated") updated++;
-          else if (res === "relinked") relinked++;
-          else notFound++;
-        }
+        const res = await repairCard(c);
+        if (res === "fixed") updated++;
+        else if (res === "relinked") relinked++;
+        else notFound++;
       } catch {
         notFound++;
       }
