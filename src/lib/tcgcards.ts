@@ -174,6 +174,98 @@ export async function fetchCardDetail(
   return mapped;
 }
 
+const LANG_MAP: Record<string, string> = {
+  EN: "en",
+  FR: "fr",
+  DE: "de",
+  IT: "it",
+  ES: "es",
+  JP: "ja",
+};
+
+function normNum(n?: string): string {
+  if (!n) return "";
+  return String(n).split("/")[0].trim().toLowerCase().replace(/^0+/, "");
+}
+function setLoose(s?: string): string {
+  return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+function setMatch(a?: string, b?: string): boolean {
+  if (!a || !b) return true; // indulgent si une extension manque
+  const x = setLoose(a);
+  const y = setLoose(b);
+  return x === y || x.includes(y) || y.includes(x);
+}
+
+export interface RelinkResult {
+  apiId: string;
+  apiLang: string;
+  marketPrice?: number;
+  marketPriceDate?: number;
+  priceLang?: string;
+  image?: string;
+  imageLarge?: string;
+  setName?: string;
+  number?: string;
+}
+
+/**
+ * Relie une carte d'une ancienne source (id incompatible) à TCGdex :
+ * recherche par nom (anglais, comme pokemontcg.io), puis correspondance sur le
+ * numéro et l'extension. Renvoie le nouvel id + prix, ou null si pas de match sûr.
+ */
+export async function relinkCard(card: {
+  name: string;
+  number?: string;
+  setName?: string;
+  language?: string;
+}): Promise<RelinkResult | null> {
+  if (!card.name) return null;
+  const priceLangPref = card.language
+    ? LANG_MAP[card.language] || "en"
+    : "en";
+  const targetNum = normNum(card.number);
+
+  // Recherche précise par nom + numéro (localId) quand le numéro est connu.
+  let pool: { apiId: string }[] = [];
+  if (targetNum) {
+    const byNum = await tcgFetch(
+      `/en/cards?name=${encodeURIComponent(card.name)}&localId=${encodeURIComponent(targetNum)}`,
+    );
+    pool = (Array.isArray(byNum) ? byNum : [])
+      .filter((c) => !isPocket(c.id))
+      .map((c) => ({ apiId: c.id }));
+  }
+  // Repli : recherche par nom seul (noms exacts d'abord), limitée.
+  if (pool.length === 0) {
+    const { cards } = await searchCards(card.name, "en");
+    const exact = cards.filter(
+      (c) => c.name.toLowerCase() === card.name.toLowerCase(),
+    );
+    pool = (exact.length ? exact : cards).slice(0, 25);
+  }
+
+  for (const cand of pool) {
+    const d = await fetchCardDetail(cand.apiId, priceLangPref);
+    if (!d) continue;
+    const numOk = targetNum ? normNum(d.number) === targetNum : false;
+    if (numOk && setMatch(card.setName, d.setName)) {
+      return {
+        apiId: d.apiId,
+        apiLang: priceLangPref,
+        marketPrice: d.marketPrice,
+        marketPriceDate: d.marketPriceDate,
+        priceLang: d.priceLang,
+        image: d.image,
+        imageLarge: d.imageLarge,
+        setName: card.setName || d.setName,
+        number: card.number || d.number,
+      };
+    }
+  }
+  return null;
+}
+
 /** Récupère les détails de plusieurs cartes, avec un pool de concurrence. */
 export async function fetchManyDetails(
   ids: string[],

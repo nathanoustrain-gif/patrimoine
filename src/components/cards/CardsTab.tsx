@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Card } from "../../db/db";
 import { fmtEUR, fmtDate } from "../../lib/format";
-import { fetchCardDetail } from "../../lib/tcgcards";
+import { fetchCardDetail, relinkCard } from "../../lib/tcgcards";
 import { upsertTodaySnapshot, cardPrice } from "../../lib/collection";
 import { sortItems, SortSelect, type SortKey } from "../SortSelect";
 import Sheet from "../Sheet";
@@ -43,6 +43,7 @@ export default function CardsTab() {
     setHealed(true);
     if (missing.length === 0) return;
     (async () => {
+      let relinked = 0;
       for (const c of missing) {
         try {
           const d = await fetchCardDetail(c.apiId!, c.apiLang || "fr");
@@ -53,11 +54,19 @@ export default function CardsTab() {
               priceLang: d.priceLang,
               updatedAt: Date.now(),
             });
+          } else if (!d) {
+            // identifiant cassé (ancienne source) → reliaison TCGdex
+            const rl = await relinkCard(c);
+            if (rl) {
+              await db.cards.update(c.id, { ...rl, updatedAt: Date.now() });
+              relinked++;
+            }
           }
         } catch {
           /* on continue */
         }
       }
+      if (relinked > 0) flash(`${relinked} carte(s) reliée(s) et prix récupérés`);
     })();
   }, [cards, healed]);
 
