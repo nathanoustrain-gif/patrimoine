@@ -29,7 +29,12 @@ export interface ApiCard {
   marketPrice?: number; // EUR
   marketPriceDate?: number;
   priceSource?: "cardmarket" | "tcgplayer";
+  /** langue d'où vient le prix (peut différer de la langue demandée) */
+  priceLang?: string;
 }
+
+/** Langues de repli pour le prix (Cardmarket EUR couvert surtout en en/fr/de). */
+const PRICE_FALLBACK_LANGS = ["en", "fr", "de", "it", "es"];
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -126,14 +131,47 @@ export async function searchCards(
   return { total: cards.length, cards };
 }
 
-/** Détail complet d'une carte (set, numéro, prix). */
+/**
+ * Détail complet d'une carte (set, numéro, prix).
+ * Le prix est cherché dans la langue demandée, puis dans d'autres langues en
+ * repli (beaucoup de cartes récentes n'ont le prix Cardmarket qu'en anglais au
+ * début). Les données d'affichage (nom, extension, image) restent dans la
+ * langue demandée.
+ */
 export async function fetchCardDetail(
   apiId: string,
   lang: Lang | string = "fr",
 ): Promise<ApiCard | null> {
-  const c = await tcgFetch(`/${lang}/cards/${encodeURIComponent(apiId)}`);
+  const L = String(lang).toLowerCase();
+  const id = encodeURIComponent(apiId);
+  let c = await tcgFetch(`/${L}/cards/${id}`);
+  // Carte introuvable dans cette langue : repli sur l'anglais pour les données.
+  if ((!c || !c.id) && L !== "en") {
+    c = await tcgFetch(`/en/cards/${id}`);
+    if (c && c.id) return mapCard(c, "en");
+  }
   if (!c || !c.id) return null;
-  return mapCard(c, String(lang));
+
+  const mapped = mapCard(c, L);
+  if (mapped.marketPrice != null) {
+    mapped.priceLang = L;
+    return mapped;
+  }
+  // Pas de prix dans cette langue → on cherche dans les autres.
+  for (const fl of PRICE_FALLBACK_LANGS) {
+    if (fl === L) continue;
+    const alt = await tcgFetch(`/${fl}/cards/${id}`);
+    if (!alt) continue;
+    const { price, date, source } = extractPrice(alt.pricing);
+    if (typeof price === "number") {
+      mapped.marketPrice = price;
+      mapped.marketPriceDate = date;
+      mapped.priceSource = source;
+      mapped.priceLang = fl;
+      break;
+    }
+  }
+  return mapped;
 }
 
 /** Récupère les détails de plusieurs cartes, avec un pool de concurrence. */

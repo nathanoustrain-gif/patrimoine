@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Card } from "../../db/db";
 import { fmtEUR, fmtDate } from "../../lib/format";
@@ -26,10 +26,40 @@ export default function CardsTab() {
     localStorage.setItem("cardsSort", s);
   }
 
+  const [healed, setHealed] = useState(false);
+
   function flash(m: string) {
     setMsg(m);
     setTimeout(() => setMsg(null), 2600);
   }
+
+  // Auto-remplissage : complète en arrière-plan les cartes API sans prix
+  // (ex. cartes ajoutées trop tôt, avant que la cote soit publiée).
+  useEffect(() => {
+    if (!cards || healed) return;
+    const missing = cards.filter(
+      (c) => c.apiId && c.marketPrice == null && c.manualPrice == null,
+    );
+    setHealed(true);
+    if (missing.length === 0) return;
+    (async () => {
+      for (const c of missing) {
+        try {
+          const d = await fetchCardDetail(c.apiId!, c.apiLang || "fr");
+          if (d && d.marketPrice != null) {
+            await db.cards.update(c.id, {
+              marketPrice: d.marketPrice,
+              marketPriceDate: d.marketPriceDate,
+              priceLang: d.priceLang,
+              updatedAt: Date.now(),
+            });
+          }
+        } catch {
+          /* on continue */
+        }
+      }
+    })();
+  }, [cards, healed]);
 
   if (!cards) return null;
 
@@ -57,6 +87,7 @@ export default function CardsTab() {
           await db.cards.update(c.id, {
             marketPrice: fresh.marketPrice,
             marketPriceDate: fresh.marketPriceDate,
+            priceLang: fresh.priceLang,
             updatedAt: Date.now(),
           });
           n++;

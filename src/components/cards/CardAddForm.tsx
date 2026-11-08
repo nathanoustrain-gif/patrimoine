@@ -67,6 +67,9 @@ export default function CardAddForm({
   const [apiPriceDate, setApiPriceDate] = useState<number | undefined>(
     initial?.marketPriceDate ?? apiCard?.marketPriceDate,
   );
+  const [priceLang, setPriceLang] = useState<string | undefined>(
+    initial?.priceLang ?? apiCard?.priceLang,
+  );
   const [priceLoading, setPriceLoading] = useState(false);
 
   // Prix forcé : pour API c'est manualPrice ; pour manuel c'est le prix de marché.
@@ -80,11 +83,13 @@ export default function CardAddForm({
 
   const [saving, setSaving] = useState(false);
 
-  // Change de langue → re-récupère le prix de marché dans cette langue (API).
+  // Récupère le prix quand on change la langue, OU si la carte n'a pas de prix
+  // (repli automatique sur une autre langue via le service).
   useEffect(() => {
     if (!isApi || !apiId) return;
     const tcg = FORM_TO_TCG[language];
-    if (!tcg || tcg === apiLang) return;
+    if (!tcg) return;
+    if (tcg === apiLang && apiPrice != null) return;
     let cancelled = false;
     setPriceLoading(true);
     fetchCardDetail(apiId, tcg)
@@ -94,6 +99,7 @@ export default function CardAddForm({
           setApiPrice(d.marketPrice);
           setApiPriceDate(d.marketPriceDate);
           setApiLang(tcg);
+          setPriceLang(d.priceLang);
         }
         setPriceLoading(false);
       })
@@ -137,6 +143,7 @@ export default function CardAddForm({
       // Prix
       marketPrice: isApi ? apiPrice : mp,
       marketPriceDate: isApi ? apiPriceDate : mp != null ? now : undefined,
+      priceLang: isApi ? priceLang : undefined,
       manualPrice: isApi ? mp : undefined,
     };
 
@@ -270,9 +277,18 @@ export default function CardAddForm({
               </span>
             )}
           {apiPriceDate ? " · maj " + fmtDate(apiPriceDate) : ""}
+          {!priceLoading &&
+            apiPrice != null &&
+            priceLang &&
+            priceLang !== FORM_TO_TCG[language] && (
+              <span style={{ color: "var(--gold)" }}>
+                {" "}
+                ≈ d'après le prix {priceLang.toUpperCase()}
+              </span>
+            )}
           <span style={{ display: "block", fontSize: 11, marginTop: 4, color: "var(--paper-faint)" }}>
-            Ajusté selon l'état (estimation). Change la langue pour le prix de cette
-            version.
+            Ajusté selon l'état (estimation). Si ta langue n'a pas de cote, le prix
+            d'une autre langue est utilisé.
           </span>
         </div>
       )}

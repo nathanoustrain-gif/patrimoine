@@ -27,6 +27,8 @@ export interface Card {
   /** prix de marché récupéré via l'API (Cardmarket) */
   marketPrice?: number;
   marketPriceDate?: number; // timestamp de la dernière MAJ
+  /** langue d'où provient le prix (peut différer de la langue de la carte) */
+  priceLang?: string;
   /** prix saisi/forcé à la main (prioritaire sur le prix API s'il est défini) */
   manualPrice?: number;
   note?: string;
