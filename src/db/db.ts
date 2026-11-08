@@ -67,11 +67,41 @@ export interface Setting {
   value: unknown;
 }
 
+/** Compte (courant, épargne, livret, courtage, wallet crypto) */
+export interface Account {
+  id: string;
+  name: string;
+  type: string; // courant | epargne | livretA | courtage | crypto
+  institution?: string;
+  /** solde de référence (ou solde si aucune position) */
+  balance: number;
+  /** compte partagé : exclu du patrimoine total, affiché à part */
+  shared?: boolean;
+  sharedWith?: string;
+  createdAt: number;
+}
+
+/** Position bourse / crypto rattachée à un compte courtage/crypto */
+export interface Position {
+  id: string;
+  accountId: string;
+  assetType: string; // stock | crypto
+  symbol: string;
+  name: string;
+  coingeckoId?: string | null;
+  quantity: number;
+  avgBuyPrice?: number | null;
+  currentPrice?: number | null;
+  lastPriceUpdate?: number | null;
+}
+
 export const db = new Dexie("PatrimoineDB") as Dexie & {
   cards: EntityTable<Card, "id">;
   sealed: EntityTable<Sealed, "id">;
   snapshots: EntityTable<Snapshot, "id">;
   settings: EntityTable<Setting, "key">;
+  accounts: EntityTable<Account, "id">;
+  positions: EntityTable<Position, "id">;
 };
 
 db.version(1).stores({
@@ -79,6 +109,11 @@ db.version(1).stores({
   sealed: "id, name, setName, type",
   snapshots: "id, date",
   settings: "key",
+});
+
+db.version(2).stores({
+  accounts: "id, type",
+  positions: "id, accountId, assetType",
 });
 
 /** Identifiant court unique */
