@@ -3,6 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Card } from "../../db/db";
 import { fmtEUR, fmtDate } from "../../lib/format";
 import { fetchCardById } from "../../lib/pokeapi";
+import { upsertTodaySnapshot } from "../../lib/collection";
 import { useSetting, SETTINGS_KEYS } from "../../lib/settings";
 import Sheet from "../Sheet";
 import CardSearch from "./CardSearch";
@@ -60,6 +61,7 @@ export default function CardsTab() {
         /* ignore, on continue */
       }
     }
+    if (n > 0) await upsertTodaySnapshot();
     setRefreshing(false);
     flash(n > 0 ? `${n} prix mis à jour` : "Aucun prix mis à jour");
   }

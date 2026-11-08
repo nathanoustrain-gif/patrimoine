@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { IconWealth } from "../components/Icons";
 import CardsTab from "../components/cards/CardsTab";
 import SealedTab from "../components/sealed/SealedTab";
+import DashboardTab from "../components/dashboard/DashboardTab";
 
 type Tab = "cartes" | "scelle" | "tableau";
 
@@ -39,19 +39,7 @@ export default function CollectionPage() {
 
       {tab === "scelle" && <SealedTab />}
 
-      {tab === "tableau" && (
-        <div className="empty-state">
-          <div className="icon">
-            <IconWealth size={46} />
-          </div>
-          <h3>Tableau de bord</h3>
-          <p>
-            Valeur totale, coût d'achat, plus-value, répartition cartes/scellé et
-            historique de la valeur dans le temps.
-          </p>
-          <span className="tag">à venir</span>
-        </div>
-      )}
+      {tab === "tableau" && <DashboardTab />}
     </div>
   );
 }
