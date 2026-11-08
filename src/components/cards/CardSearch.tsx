@@ -1,36 +1,58 @@
 import { useState } from "react";
-import { searchCards, type ApiCard } from "../../lib/pokeapi";
-import { useSetting, SETTINGS_KEYS } from "../../lib/settings";
-import { fmtEUR } from "../../lib/format";
+import {
+  searchCards,
+  fetchCardDetail,
+  type CardBrief,
+  type ApiCard,
+  type Lang,
+} from "../../lib/tcgcards";
 import CardAddForm from "./CardAddForm";
 
 type Props = { onClose: () => void };
 
 export default function CardSearch({ onClose }: Props) {
-  const apiKey = useSetting<string>(SETTINGS_KEYS.pokeApiKey);
+  const [lang, setLang] = useState<Lang>("fr");
   const [term, setTerm] = useState("");
-  const [results, setResults] = useState<ApiCard[]>([]);
+  const [results, setResults] = useState<CardBrief[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const [picked, setPicked] = useState<ApiCard | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
-  async function run(nextPage = 1) {
+  async function run() {
     if (!term.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await searchCards(term, nextPage, apiKey);
+      const res = await searchCards(term, lang);
       setTotal(res.total);
-      setPage(nextPage);
-      setResults((prev) => (nextPage === 1 ? res.cards : [...prev, ...res.cards]));
+      setResults(res.cards);
       setSearched(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur");
     }
     setLoading(false);
+  }
+
+  async function pick(brief: CardBrief) {
+    setLoadingDetail(true);
+    setError(null);
+    try {
+      const detail = await fetchCardDetail(brief.apiId, lang);
+      setPicked(
+        detail ?? {
+          apiId: brief.apiId,
+          apiLang: lang,
+          name: brief.name,
+          image: brief.image,
+        },
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur");
+    }
+    setLoadingDetail(false);
   }
 
   if (picked) {
@@ -47,32 +69,54 @@ export default function CardSearch({ onClose }: Props) {
 
   return (
     <div>
+      <div className="lang-toggle">
+        <button
+          className={lang === "fr" ? "active" : ""}
+          onClick={() => setLang("fr")}
+        >
+          Français
+        </button>
+        <button
+          className={lang === "en" ? "active" : ""}
+          onClick={() => setLang("en")}
+        >
+          English
+        </button>
+      </div>
+
       <form
         className="search-bar"
         onSubmit={(e) => {
           e.preventDefault();
-          run(1);
+          run();
         }}
       >
         <input
           autoFocus
           value={term}
           onChange={(e) => setTerm(e.target.value)}
-          placeholder="Nom de la carte (en anglais)…"
+          placeholder={lang === "fr" ? "Ex : dracaufeu, pikachu…" : "Ex : charizard…"}
         />
         <button type="submit" className="btn primary" disabled={loading}>
           {loading ? "…" : "Chercher"}
         </button>
       </form>
       <p className="search-hint">
-        L'API est anglophone : cherchez « charizard », « pikachu ex »… Pour une carte
-        FR ou JP, utilisez la saisie manuelle.
+        Prix Cardmarket en euros, mis à jour quotidiennement (TCGdex). Cherche en
+        français ou en anglais. Pour une carte absente (JP…), utilise la saisie
+        manuelle.
       </p>
+
+      {loadingDetail && (
+        <p className="empty-state" style={{ padding: "16px 0" }}>
+          Chargement de la carte…
+        </p>
+      )}
 
       {error && (
         <div className="search-error">
           {error}
-          <button className="btn" onClick={() => run(page)} style={{ marginTop: 10 }}>
+          <button className="btn" onClick={run} style={{ marginTop: 10 }}>
             Réessayer
           </button>
         </div>
@@ -80,7 +124,7 @@ export default function CardSearch({ onClose }: Props) {
 
       {searched && !error && results.length === 0 && !loading && (
         <p className="empty-state" style={{ padding: "28px 0" }}>
-          Aucun résultat. Essayez un autre nom, ou la saisie manuelle.
+          Aucun résultat. Essaie un autre nom, l'autre langue, ou la saisie manuelle.
         </p>
       )}
 
@@ -91,7 +135,8 @@ export default function CardSearch({ onClose }: Props) {
               <button
                 key={c.apiId}
                 className="result-item"
-                onClick={() => setPicked(c)}
+                onClick={() => pick(c)}
+                disabled={loadingDetail}
               >
                 <div className="thumb">
                   {c.image ? (
@@ -102,26 +147,15 @@ export default function CardSearch({ onClose }: Props) {
                 </div>
                 <div className="meta">
                   <div className="nm">{c.name}</div>
-                  <div className="st">
-                    {c.setName}
-                    {c.number ? " · " + c.number : ""}
-                  </div>
-                  <div className="pr">
-                    {c.marketPrice != null ? fmtEUR(c.marketPrice) : "—"}
-                  </div>
                 </div>
               </button>
             ))}
           </div>
-          {results.length < total && (
-            <button
-              className="btn"
-              style={{ width: "100%", marginTop: 14 }}
-              onClick={() => run(page + 1)}
-              disabled={loading}
-            >
-              {loading ? "Chargement…" : `Voir plus (${results.length}/${total})`}
-            </button>
+          {total > results.length && (
+            <p className="search-hint" style={{ marginTop: 12 }}>
+              {results.length} premiers résultats sur {total}. Affine ta recherche si
+              besoin.
+            </p>
           )}
         </>
       )}

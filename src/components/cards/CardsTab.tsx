@@ -2,9 +2,8 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Card } from "../../db/db";
 import { fmtEUR, fmtDate } from "../../lib/format";
-import { fetchCardById } from "../../lib/pokeapi";
+import { fetchCardDetail } from "../../lib/tcgcards";
 import { upsertTodaySnapshot } from "../../lib/collection";
-import { useSetting, SETTINGS_KEYS } from "../../lib/settings";
 import Sheet from "../Sheet";
 import CardSearch from "./CardSearch";
 import CardAddForm from "./CardAddForm";
@@ -15,7 +14,6 @@ function effPrice(c: Card): number {
 }
 
 export default function CardsTab() {
-  const apiKey = useSetting<string>(SETTINGS_KEYS.pokeApiKey);
   const cards = useLiveQuery(() => db.cards.orderBy("name").toArray(), []);
   const [searchOpen, setSearchOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -48,7 +46,7 @@ export default function CardsTab() {
     for (const c of cards!) {
       if (!c.apiId) continue;
       try {
-        const fresh = await fetchCardById(c.apiId, apiKey);
+        const fresh = await fetchCardDetail(c.apiId, c.apiLang || "fr");
         if (fresh && fresh.marketPrice != null) {
           await db.cards.update(c.id, {
             marketPrice: fresh.marketPrice,

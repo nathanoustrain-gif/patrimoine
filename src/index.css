@@ -614,6 +614,27 @@ input[readonly] {
    Recherche de cartes
    ============================================================ */
 
+.lang-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.lang-toggle button {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--paper-dim);
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.lang-toggle button.active {
+  color: var(--paper);
+  border-color: var(--coll-accent);
+  background: var(--coll-accent-soft);
+}
+
 .search-bar {
   display: flex;
   gap: 8px;

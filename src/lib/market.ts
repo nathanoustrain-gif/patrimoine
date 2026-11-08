@@ -54,27 +54,76 @@ export async function fetchCryptoPrices(
   return out;
 }
 
-/** Prix par ticker via Twelve Data (clé requise). */
+const TD = "https://api.twelvedata.com";
+
+/**
+ * Prix par ticker via Twelve Data, convertis en EUR.
+ * 1) /quote → prix (close) + devise de chaque titre
+ * 2) /exchange_rate → taux devise→EUR pour les devises ≠ EUR
+ * Si le taux manque, le prix est gardé tel quel (pas de conversion).
+ */
 export async function fetchStockPrices(
   symbols: string[],
   apiKey: string,
 ): Promise<Record<string, number>> {
   const uniq = [...new Set(symbols)].filter(Boolean);
   if (uniq.length === 0) return {};
-  const res = await fetch(
-    "https://api.twelvedata.com/price?symbol=" +
+
+  // 1) Cotations (prix + devise)
+  const qRes = await fetch(
+    TD +
+      "/quote?symbol=" +
       encodeURIComponent(uniq.join(",")) +
       "&apikey=" +
       encodeURIComponent(apiKey),
   );
-  const data = await res.json();
+  const qData = await qRes.json();
+  const quotes: Record<string, any> =
+    uniq.length === 1 ? { [uniq[0]]: qData } : qData;
+
+  const info: Record<string, { price: number; currency: string }> = {};
+  const currencies = new Set<string>();
+  for (const sym of uniq) {
+    const q = quotes[sym];
+    const raw = q && (q.close ?? q.price);
+    if (raw !== undefined && raw !== null && !q?.code) {
+      const currency = (q.currency || "EUR").toUpperCase();
+      info[sym] = { price: parseFloat(raw), currency };
+      if (currency !== "EUR") currencies.add(currency);
+    }
+  }
+
+  // 2) Taux de change vers EUR
+  const rates: Record<string, number> = { EUR: 1 };
+  if (currencies.size > 0) {
+    const cur = [...currencies];
+    const pairs = cur.map((c) => `${c}/EUR`).join(",");
+    try {
+      const fxRes = await fetch(
+        TD +
+          "/exchange_rate?symbol=" +
+          encodeURIComponent(pairs) +
+          "&apikey=" +
+          encodeURIComponent(apiKey),
+      );
+      const fx = await fxRes.json();
+      if (cur.length === 1) {
+        if (fx.rate) rates[cur[0]] = fx.rate;
+      } else {
+        for (const c of cur) {
+          const k = `${c}/EUR`;
+          if (fx[k]?.rate) rates[c] = fx[k].rate;
+        }
+      }
+    } catch {
+      /* pas de conversion si l'appel échoue */
+    }
+  }
+
   const out: Record<string, number> = {};
-  if (uniq.length === 1) {
-    if (data.price) out[uniq[0]] = parseFloat(data.price);
-  } else {
-    uniq.forEach((sym) => {
-      if (data[sym] && data[sym].price) out[sym] = parseFloat(data[sym].price);
-    });
+  for (const sym of uniq) {
+    const i = info[sym];
+    if (i) out[sym] = i.price * (rates[i.currency] ?? 1);
   }
   return out;
 }

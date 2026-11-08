@@ -8,8 +8,10 @@ import Dexie, { type EntityTable } from "dexie";
 /** Carte à l'unité */
 export interface Card {
   id: string;
-  /** id de la carte dans l'API pokemontcg.io (si trouvée automatiquement) */
+  /** id de la carte dans l'API TCGdex (si trouvée automatiquement) */
   apiId?: string;
+  /** langue utilisée pour l'API (fr/en…), pour rafraîchir le bon prix */
+  apiLang?: string;
   name: string;
   setName?: string;
   /** numéro dans l'extension, ex : "25/102" */

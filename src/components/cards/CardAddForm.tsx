@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { db, uid, type Card } from "../../db/db";
-import type { ApiCard } from "../../lib/pokeapi";
+import type { ApiCard } from "../../lib/tcgcards";
 import { fmtEUR, fmtDate } from "../../lib/format";
 
 export const CONDITIONS = ["MT", "NM", "EX", "GD", "LP", "PL", "PO"];
@@ -45,6 +45,7 @@ export default function CardAddForm({
   const [note, setNote] = useState(initial?.note ?? "");
 
   const apiId = initial?.apiId ?? apiCard?.apiId;
+  const apiLang = initial?.apiLang ?? apiCard?.apiLang;
   const apiPrice = initial?.marketPrice ?? apiCard?.marketPrice;
   const apiPriceDate = initial?.marketPriceDate ?? apiCard?.marketPriceDate;
   const isApi = !!apiId && !manual;
@@ -70,6 +71,7 @@ export default function CardAddForm({
     const card: Card = {
       id: initial?.id ?? uid(),
       apiId: apiId || undefined,
+      apiLang: apiLang || undefined,
       name: name.trim(),
       setName: extName.trim() || undefined,
       number: number.trim() || undefined,
