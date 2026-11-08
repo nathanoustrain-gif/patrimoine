@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { IconBox, IconWealth, IconPlus } from "../components/Icons";
+import { IconWealth } from "../components/Icons";
 import CardsTab from "../components/cards/CardsTab";
+import SealedTab from "../components/sealed/SealedTab";
 
 type Tab = "cartes" | "scelle" | "tableau";
 
@@ -36,26 +37,7 @@ export default function CollectionPage() {
 
       {tab === "cartes" && <CardsTab />}
 
-      {tab === "scelle" && (
-        <div className="empty-state">
-          <div className="icon">
-            <IconBox size={46} />
-          </div>
-          <h3>Aucun produit scellé</h3>
-          <p>
-            ETB, bundles, displays, coffrets… avec quantité, prix d'achat et valeur
-            de marché.
-          </p>
-          <button className="btn primary" disabled>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <IconPlus size={16} /> Ajouter un produit
-            </span>
-          </button>
-          <p style={{ marginTop: 14, fontSize: 12 }} className="accent">
-            Stock scellé — étape suivante
-          </p>
-        </div>
-      )}
+      {tab === "scelle" && <SealedTab />}
 
       {tab === "tableau" && (
         <div className="empty-state">

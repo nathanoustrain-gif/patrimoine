@@ -564,6 +564,19 @@ input[readonly] {
   padding: 2px 7px;
   border-radius: 20px;
 }
+.showcase-item .thumb .type-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: var(--coll-accent-soft);
+  border: 1px solid var(--coll-accent);
+  color: var(--coll-accent);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
 .showcase-item .info {
   padding: 9px 10px 11px;
 }
