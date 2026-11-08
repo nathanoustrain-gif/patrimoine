@@ -7,9 +7,13 @@ const TABLES = ["cards", "sealed", "snapshots", "settings"] as const;
 export default function SettingsPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
+  const [tdKey, setTdKey] = useState("");
 
   useEffect(() => {
     getSetting<string>(SETTINGS_KEYS.pokeApiKey, "").then((v) => setApiKey(v ?? ""));
+    getSetting<string>(SETTINGS_KEYS.twelveDataApiKey, "").then((v) =>
+      setTdKey(v ?? ""),
+    );
   }, []);
 
   function flash(m: string) {
@@ -20,6 +24,11 @@ export default function SettingsPage() {
   async function saveApiKey() {
     await setSetting(SETTINGS_KEYS.pokeApiKey, apiKey.trim());
     flash("Clé API enregistrée");
+  }
+
+  async function saveTdKey() {
+    await setSetting(SETTINGS_KEYS.twelveDataApiKey, tdKey.trim());
+    flash("Clé Twelve Data enregistrée");
   }
 
   async function exportBackup() {
@@ -88,6 +97,28 @@ export default function SettingsPage() {
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
           <button className="btn primary" onClick={saveApiKey}>
+            Enregistrer
+          </button>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="section">Clé API Twelve Data</h2>
+        <p style={{ color: "var(--paper-dim)", fontSize: 13.5, marginTop: 0, marginBottom: 16 }}>
+          Nécessaire pour rafraîchir les prix des actions / ETF (onglet Patrimoine →
+          Bourse & Crypto). Les cryptos (CoinGecko) n'en ont pas besoin. Clé gratuite
+          sur twelvedata.com.
+        </p>
+        <div className="field">
+          <label>Clé API</label>
+          <input
+            value={tdKey}
+            onChange={(e) => setTdKey(e.target.value)}
+            placeholder="Votre clé Twelve Data (optionnel)"
+          />
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+          <button className="btn primary" onClick={saveTdKey}>
             Enregistrer
           </button>
         </div>

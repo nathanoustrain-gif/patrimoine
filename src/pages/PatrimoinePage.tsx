@@ -1,7 +1,7 @@
 import { useState } from "react";
 import OverviewTab from "../components/patrimoine/OverviewTab";
 import ComptesTab from "../components/accounts/ComptesTab";
-import { IconWealth } from "../components/Icons";
+import BourseTab from "../components/bourse/BourseTab";
 
 type Tab = "overview" | "comptes" | "bourse";
 
@@ -37,19 +37,7 @@ export default function PatrimoinePage() {
 
       {tab === "overview" && <OverviewTab />}
       {tab === "comptes" && <ComptesTab />}
-      {tab === "bourse" && (
-        <div className="empty-state">
-          <div className="icon">
-            <IconWealth size={46} />
-          </div>
-          <h3>Bourse & Crypto</h3>
-          <p>
-            Positions actions/ETF (Twelve Data) et crypto (CoinGecko), rattachées à
-            tes comptes courtage et wallets.
-          </p>
-          <span className="tag">prochaine étape</span>
-        </div>
-      )}
+      {tab === "bourse" && <BourseTab />}
     </div>
   );
 }

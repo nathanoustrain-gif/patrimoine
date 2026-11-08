@@ -922,3 +922,75 @@ input[readonly] {
 .acc-main:hover .val {
   color: var(--gold);
 }
+
+/* Recherche crypto (CoinGecko) */
+.coin-results {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.coin-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  color: var(--paper);
+  font-family: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+  text-align: left;
+}
+.coin-row:last-child {
+  border-bottom: none;
+}
+.coin-row:hover {
+  background: var(--surface-2);
+}
+.coin-row img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+.coin-row .sym {
+  color: var(--paper-dim);
+}
+.picked-note {
+  font-size: 12.5px;
+  color: var(--gain);
+  margin: 8px 0 0;
+}
+
+/* Lignes de positions (Bourse & Crypto) */
+.acc-main.pos-row {
+  align-items: flex-start;
+}
+.pos-qty {
+  display: block;
+  font-size: 11.5px;
+  color: var(--paper-dim);
+  margin-top: 3px;
+}
+.pos-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  white-space: nowrap;
+}
+.pos-pl {
+  font-size: 11.5px;
+}
+.pos-pl.pos {
+  color: var(--gain);
+}
+.pos-pl.neg {
+  color: var(--loss);
+}
+.pos-pl .pct {
+  opacity: 0.85;
+}
