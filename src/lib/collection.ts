@@ -1,8 +1,30 @@
 import { db, type Card, type Sealed, type Snapshot } from "../db/db";
 
-/** Prix de marché effectif d'une carte (prix forcé prioritaire). */
+/** Coefficient de valeur selon l'état (NM = référence Cardmarket). Estimation. */
+export const CONDITION_FACTOR: Record<string, number> = {
+  MT: 1,
+  NM: 1,
+  EX: 0.85,
+  GD: 0.7,
+  LP: 0.55,
+  PL: 0.4,
+  PO: 0.25,
+};
+
+export function conditionFactor(cond?: string): number {
+  if (!cond) return 1;
+  return CONDITION_FACTOR[cond] ?? 1;
+}
+
+/**
+ * Prix de marché effectif d'une carte.
+ * - prix forcé (manualPrice) prioritaire, tel quel
+ * - sinon prix marché ajusté selon l'état de la carte
+ */
 export function cardPrice(c: Card): number {
-  return c.manualPrice ?? c.marketPrice ?? 0;
+  if (c.manualPrice != null) return c.manualPrice;
+  if (c.marketPrice == null) return 0;
+  return c.marketPrice * conditionFactor(c.condition);
 }
 
 export function sealedPrice(s: Sealed): number {

@@ -5,6 +5,8 @@ export const SEALED_TYPES = [
   "ETB",
   "Bundle",
   "Display",
+  "Demi-display",
+  "Pokébox",
   "Coffret",
   "Booster",
   "Autre",

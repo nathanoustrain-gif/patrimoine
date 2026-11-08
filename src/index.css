@@ -614,6 +614,24 @@ input[readonly] {
    Recherche de cartes
    ============================================================ */
 
+.sort-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.sort-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--paper-dim);
+}
+.sort-select select {
+  width: auto;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
 .lang-toggle {
   display: flex;
   gap: 6px;

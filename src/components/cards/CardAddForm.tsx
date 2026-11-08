@@ -1,10 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { db, uid, type Card } from "../../db/db";
-import type { ApiCard } from "../../lib/tcgcards";
+import { fetchCardDetail, type ApiCard } from "../../lib/tcgcards";
 import { fmtEUR, fmtDate } from "../../lib/format";
+import { conditionFactor } from "../../lib/collection";
 
 export const CONDITIONS = ["MT", "NM", "EX", "GD", "LP", "PL", "PO"];
 export const LANGUAGES = ["EN", "FR", "JP", "DE", "IT", "ES"];
+
+/** Codes langue de l'app → codes TCGdex. */
+const FORM_TO_TCG: Record<string, string> = {
+  EN: "en",
+  FR: "fr",
+  DE: "de",
+  IT: "it",
+  ES: "es",
+  JP: "ja",
+};
 
 type Props = {
   /** carte issue de la recherche API (mode ajout API) */
@@ -27,6 +38,9 @@ export default function CardAddForm({
 }: Props) {
   const [confirmDel, setConfirmDel] = useState(false);
   const base = initial ?? apiCard;
+  const apiId = initial?.apiId ?? apiCard?.apiId;
+  const isApi = !!apiId && !manual;
+
   const [name, setName] = useState(base?.name ?? "");
   const [extName, setExtName] = useState(base?.setName ?? "");
   const [number, setNumber] = useState(base?.number ?? "");
@@ -34,7 +48,8 @@ export default function CardAddForm({
     (initial?.image ?? apiCard?.image) ?? "",
   );
   const [language, setLanguage] = useState(
-    initial?.language ?? (manual ? "FR" : "EN"),
+    initial?.language ??
+      (apiCard?.apiLang === "fr" ? "FR" : apiCard ? "EN" : manual ? "FR" : "EN"),
   );
   const [condition, setCondition] = useState(initial?.condition ?? "NM");
   const [quantity, setQuantity] = useState(String(initial?.quantity ?? 1));
@@ -44,11 +59,15 @@ export default function CardAddForm({
   const [purchaseDate, setPurchaseDate] = useState(initial?.purchaseDate ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
 
-  const apiId = initial?.apiId ?? apiCard?.apiId;
-  const apiLang = initial?.apiLang ?? apiCard?.apiLang;
-  const apiPrice = initial?.marketPrice ?? apiCard?.marketPrice;
-  const apiPriceDate = initial?.marketPriceDate ?? apiCard?.marketPriceDate;
-  const isApi = !!apiId && !manual;
+  // Prix API : en état (réactif), pour suivre les changements de langue.
+  const [apiLang, setApiLang] = useState(initial?.apiLang ?? apiCard?.apiLang);
+  const [apiPrice, setApiPrice] = useState<number | undefined>(
+    initial?.marketPrice ?? apiCard?.marketPrice,
+  );
+  const [apiPriceDate, setApiPriceDate] = useState<number | undefined>(
+    initial?.marketPriceDate ?? apiCard?.marketPriceDate,
+  );
+  const [priceLoading, setPriceLoading] = useState(false);
 
   // Prix forcé : pour API c'est manualPrice ; pour manuel c'est le prix de marché.
   const [manualPrice, setManualPrice] = useState(
@@ -60,6 +79,35 @@ export default function CardAddForm({
   );
 
   const [saving, setSaving] = useState(false);
+
+  // Change de langue → re-récupère le prix de marché dans cette langue (API).
+  useEffect(() => {
+    if (!isApi || !apiId) return;
+    const tcg = FORM_TO_TCG[language];
+    if (!tcg || tcg === apiLang) return;
+    let cancelled = false;
+    setPriceLoading(true);
+    fetchCardDetail(apiId, tcg)
+      .then((d) => {
+        if (cancelled) return;
+        if (d) {
+          setApiPrice(d.marketPrice);
+          setApiPriceDate(d.marketPriceDate);
+          setApiLang(tcg);
+        }
+        setPriceLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setPriceLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
+
+  const adjustedPrice =
+    apiPrice != null ? apiPrice * conditionFactor(condition) : undefined;
 
   async function submit(ev: React.FormEvent) {
     ev.preventDefault();
@@ -204,9 +252,28 @@ export default function CardAddForm({
 
       {isApi && (
         <div className="market-note">
-          Prix marché (Cardmarket) :{" "}
-          <strong>{apiPrice != null ? fmtEUR(apiPrice) : "indisponible"}</strong>
+          Prix marché :{" "}
+          <strong>
+            {priceLoading
+              ? "…"
+              : adjustedPrice != null
+                ? fmtEUR(adjustedPrice)
+                : "indisponible"}
+          </strong>
+          {!priceLoading &&
+            apiPrice != null &&
+            condition !== "NM" &&
+            condition !== "MT" && (
+              <span style={{ color: "var(--paper-faint)" }}>
+                {" "}
+                (état {condition} · base {fmtEUR(apiPrice)})
+              </span>
+            )}
           {apiPriceDate ? " · maj " + fmtDate(apiPriceDate) : ""}
+          <span style={{ display: "block", fontSize: 11, marginTop: 4, color: "var(--paper-faint)" }}>
+            Ajusté selon l'état (estimation). Change la langue pour le prix de cette
+            version.
+          </span>
         </div>
       )}
 

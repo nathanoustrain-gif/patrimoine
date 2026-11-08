@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Sealed } from "../../db/db";
 import { fmtEUR } from "../../lib/format";
+import { sortItems, SortSelect, type SortKey } from "../SortSelect";
 import Sheet from "../Sheet";
 import SealedForm from "./SealedForm";
 import { IconBox, IconPlus } from "../Icons";
@@ -11,6 +12,14 @@ export default function SealedTab() {
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Sealed | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>(
+    () => (localStorage.getItem("sealedSort") as SortKey) || "nom",
+  );
+
+  function changeSort(s: SortKey) {
+    setSort(s);
+    localStorage.setItem("sealedSort", s);
+  }
 
   function flash(m: string) {
     setMsg(m);
@@ -18,6 +27,8 @@ export default function SealedTab() {
   }
 
   if (!items) return null;
+
+  const sorted = sortItems(items, sort, (s) => s.marketPrice || 0, "type");
 
   const totalValue = items.reduce(
     (s, c) => s + c.quantity * (c.marketPrice || 0),
@@ -69,8 +80,12 @@ export default function SealedTab() {
             </div>
           </div>
 
+          <div className="sort-row">
+            <SortSelect value={sort} onChange={changeSort} extensionLabel="Type" />
+          </div>
+
           <div className="showcase-grid">
-            {items.map((c) => (
+            {sorted.map((c) => (
               <button
                 key={c.id}
                 className="showcase-item tappable"

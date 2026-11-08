@@ -3,15 +3,12 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Card } from "../../db/db";
 import { fmtEUR, fmtDate } from "../../lib/format";
 import { fetchCardDetail } from "../../lib/tcgcards";
-import { upsertTodaySnapshot } from "../../lib/collection";
+import { upsertTodaySnapshot, cardPrice } from "../../lib/collection";
+import { sortItems, SortSelect, type SortKey } from "../SortSelect";
 import Sheet from "../Sheet";
 import CardSearch from "./CardSearch";
 import CardAddForm from "./CardAddForm";
 import { IconCards, IconPlus } from "../Icons";
-
-function effPrice(c: Card): number {
-  return c.manualPrice ?? c.marketPrice ?? 0;
-}
 
 export default function CardsTab() {
   const cards = useLiveQuery(() => db.cards.orderBy("name").toArray(), []);
@@ -20,6 +17,14 @@ export default function CardsTab() {
   const [editing, setEditing] = useState<Card | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>(
+    () => (localStorage.getItem("cardsSort") as SortKey) || "nom",
+  );
+
+  function changeSort(s: SortKey) {
+    setSort(s);
+    localStorage.setItem("cardsSort", s);
+  }
 
   function flash(m: string) {
     setMsg(m);
@@ -28,7 +33,8 @@ export default function CardsTab() {
 
   if (!cards) return null;
 
-  const totalValue = cards.reduce((s, c) => s + c.quantity * effPrice(c), 0);
+  const sorted = sortItems(cards, sort, cardPrice, "setName");
+  const totalValue = cards.reduce((s, c) => s + c.quantity * cardPrice(c), 0);
   const totalCost = cards.reduce(
     (s, c) => s + c.quantity * (c.purchasePrice || 0),
     0,
@@ -118,8 +124,12 @@ export default function CardsTab() {
             </div>
           )}
 
+          <div className="sort-row">
+            <SortSelect value={sort} onChange={changeSort} extensionLabel="Extension" />
+          </div>
+
           <div className="showcase-grid">
-            {cards.map((c) => (
+            {sorted.map((c) => (
               <button
                 key={c.id}
                 className="showcase-item tappable"
@@ -140,7 +150,7 @@ export default function CardsTab() {
                     {c.number ? " · " + c.number : ""}
                     <span className="lang">{c.language}</span>
                   </div>
-                  <div className="pr mono">{fmtEUR(effPrice(c))}</div>
+                  <div className="pr mono">{fmtEUR(cardPrice(c))}</div>
                 </div>
               </button>
             ))}

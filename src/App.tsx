@@ -1,12 +1,18 @@
+import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Header from "./components/Header";
 import BottomNav from "./components/BottomNav";
 import UpdateBanner from "./components/UpdateBanner";
+import { recategorizeSealed } from "./lib/migrations";
 import CollectionPage from "./pages/CollectionPage";
 import PatrimoinePage from "./pages/PatrimoinePage";
 import SettingsPage from "./pages/SettingsPage";
 
 export default function App() {
+  useEffect(() => {
+    recategorizeSealed();
+  }, []);
+
   return (
     <div className="app-shell">
       <Header />

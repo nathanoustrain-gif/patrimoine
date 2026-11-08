@@ -2,21 +2,22 @@
    Service cartes — TCGdex (api.tcgdex.net)
    - Gratuit, sans clé, CORS, multilingue (FR/EN…)
    - Prix Cardmarket en EUR, mis à jour quotidiennement
-   - Couvre les nouveaux sets (contrairement à pokemontcg.io)
+   - Repli TCGplayer (USD→EUR approx) si Cardmarket absent
+   - Les cartes Pokémon TCG Pocket (jeu mobile, sans cote) sont exclues
    ============================================================ */
 
 const BASE = "https://api.tcgdex.net/v2";
+// Taux USD→EUR approximatif, pour le repli TCGplayer uniquement (rare).
+const USD_EUR = 0.92;
 
 export type Lang = "fr" | "en";
 
-/** Résultat bref de recherche (l'API ne renvoie que id/nom/image). */
 export interface CardBrief {
   apiId: string;
   name: string;
   image?: string;
 }
 
-/** Carte détaillée (avec prix). */
 export interface ApiCard {
   apiId: string;
   apiLang: string;
@@ -25,13 +26,18 @@ export interface ApiCard {
   number?: string;
   image?: string;
   imageLarge?: string;
-  marketPrice?: number; // EUR (Cardmarket)
+  marketPrice?: number; // EUR
   marketPriceDate?: number;
+  priceSource?: "cardmarket" | "tcgplayer";
 }
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Les images TCGdex sont des bases sans extension : on ajoute qualité + format. */
+/** Carte du jeu mobile Pokémon TCG Pocket (ids A1…, A2b…, P-A…) — pas de cote. */
+export function isPocket(id: string): boolean {
+  return /^A\d/i.test(id) || /^P-A/i.test(id);
+}
+
 function imgUrl(base: string | undefined, quality: "low" | "high"): string | undefined {
   return base ? `${base}/${quality}.webp` : undefined;
 }
@@ -54,7 +60,57 @@ async function tcgFetch(path: string): Promise<any> {
   );
 }
 
-/** Recherche par nom (partielle), dans la langue choisie. */
+/** Prix retenu : Cardmarket EUR, sinon repli TCGplayer converti en EUR. */
+function extractPrice(pricing: any): {
+  price?: number;
+  date?: number;
+  source?: "cardmarket" | "tcgplayer";
+} {
+  const cm = pricing?.cardmarket;
+  const cmPrice = cm ? (cm.trend ?? cm.avg30 ?? cm.avg ?? cm.avg7) : undefined;
+  if (typeof cmPrice === "number") {
+    let date: number | undefined;
+    if (cm.updated) {
+      const t = new Date(cm.updated).getTime();
+      if (!Number.isNaN(t)) date = t;
+    }
+    return { price: cmPrice, date, source: "cardmarket" };
+  }
+  const tp = pricing?.tcgplayer;
+  if (tp) {
+    const usd =
+      tp.holofoil?.marketPrice ??
+      tp.normal?.marketPrice ??
+      tp["reverse-holofoil"]?.marketPrice;
+    if (typeof usd === "number") {
+      let date: number | undefined;
+      if (tp.updated) {
+        const t = new Date(tp.updated).getTime();
+        if (!Number.isNaN(t)) date = t;
+      }
+      return { price: usd * USD_EUR, date, source: "tcgplayer" };
+    }
+  }
+  return {};
+}
+
+function mapCard(c: any, lang: string): ApiCard {
+  const { price, date, source } = extractPrice(c.pricing);
+  return {
+    apiId: c.id,
+    apiLang: lang,
+    name: c.name,
+    setName: c.set?.name,
+    number: c.localId ? String(c.localId) : undefined,
+    image: imgUrl(c.image, "low"),
+    imageLarge: imgUrl(c.image, "high"),
+    marketPrice: typeof price === "number" ? price : undefined,
+    marketPriceDate: date,
+    priceSource: source,
+  };
+}
+
+/** Recherche par nom (partielle, sensible aux accents en FR). */
 export async function searchCards(
   term: string,
   lang: Lang = "fr",
@@ -64,14 +120,10 @@ export async function searchCards(
     `/${lang}/cards?name=${encodeURIComponent(term.trim())}`,
   );
   const arr: any[] = Array.isArray(data) ? data : [];
-  return {
-    total: arr.length,
-    cards: arr.slice(0, 60).map((c) => ({
-      apiId: c.id,
-      name: c.name,
-      image: imgUrl(c.image, "low"),
-    })),
-  };
+  const cards = arr
+    .filter((c) => !isPocket(c.id))
+    .map((c) => ({ apiId: c.id, name: c.name, image: imgUrl(c.image, "low") }));
+  return { total: cards.length, cards };
 }
 
 /** Détail complet d'une carte (set, numéro, prix). */
@@ -81,24 +133,30 @@ export async function fetchCardDetail(
 ): Promise<ApiCard | null> {
   const c = await tcgFetch(`/${lang}/cards/${encodeURIComponent(apiId)}`);
   if (!c || !c.id) return null;
-  const cm = c.pricing?.cardmarket;
-  const price = cm
-    ? (cm.trend ?? cm.avg30 ?? cm.avg ?? cm.avg7 ?? undefined)
-    : undefined;
-  let date: number | undefined;
-  if (cm?.updated) {
-    const t = new Date(cm.updated).getTime();
-    if (!Number.isNaN(t)) date = t;
+  return mapCard(c, String(lang));
+}
+
+/** Récupère les détails de plusieurs cartes, avec un pool de concurrence. */
+export async function fetchManyDetails(
+  ids: string[],
+  lang: Lang | string = "fr",
+  concurrency = 6,
+): Promise<Record<string, ApiCard>> {
+  const out: Record<string, ApiCard> = {};
+  let i = 0;
+  async function worker() {
+    while (i < ids.length) {
+      const id = ids[i++];
+      try {
+        const d = await fetchCardDetail(id, lang);
+        if (d) out[id] = d;
+      } catch {
+        /* on ignore cette carte */
+      }
+    }
   }
-  return {
-    apiId: c.id,
-    apiLang: String(lang),
-    name: c.name,
-    setName: c.set?.name,
-    number: c.localId ? String(c.localId) : undefined,
-    image: imgUrl(c.image, "low"),
-    imageLarge: imgUrl(c.image, "high"),
-    marketPrice: typeof price === "number" ? price : undefined,
-    marketPriceDate: date,
-  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, ids.length) }, worker),
+  );
+  return out;
 }
