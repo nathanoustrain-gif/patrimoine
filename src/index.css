@@ -415,3 +415,354 @@ button {
   box-shadow: var(--shadow);
   z-index: 60;
 }
+
+/* ============================================================
+   Contrôles de formulaire
+   ============================================================ */
+
+label {
+  display: block;
+  font-size: 12px;
+  color: var(--paper-dim);
+  margin-bottom: 6px;
+  letter-spacing: 0.01em;
+}
+input,
+select {
+  width: 100%;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  color: var(--paper);
+  padding: 10px 11px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 14px;
+}
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--gold-line);
+}
+input[readonly] {
+  color: var(--paper-dim);
+  background: var(--surface-2);
+}
+.field {
+  margin-bottom: 14px;
+}
+.field-row {
+  display: flex;
+  gap: 10px;
+}
+.field-row .field {
+  flex: 1;
+}
+
+/* Boutons additionnels */
+.btn.small {
+  padding: 7px 12px;
+  font-size: 12.5px;
+}
+.btn-ic {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn.danger {
+  background: var(--loss);
+  border-color: var(--loss);
+  color: #1b0f0a;
+  font-weight: 600;
+}
+.btn.danger-ghost {
+  color: var(--loss);
+}
+.btn.danger-ghost:hover {
+  border-color: var(--loss);
+}
+
+/* ============================================================
+   Module cartes — barre d'outils, stats, tuiles
+   ============================================================ */
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.toolbar .btn.primary {
+  flex: 1;
+}
+
+.stat-strip {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stat-strip > div {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 11px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stat-strip .k {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--paper-faint);
+}
+.stat-strip .v {
+  font-size: 15px;
+}
+.stat-strip .v.pos {
+  color: var(--gain);
+}
+.stat-strip .v.neg {
+  color: var(--loss);
+}
+
+.refresh-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.refresh-row .muted {
+  font-size: 12px;
+  color: var(--paper-faint);
+}
+
+.showcase-item.tappable {
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  font-family: inherit;
+  color: inherit;
+}
+.showcase-item .thumb {
+  position: relative;
+}
+.showcase-item .thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.showcase-item .thumb .qty {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid var(--line);
+  color: var(--paper);
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+.showcase-item .info {
+  padding: 9px 10px 11px;
+}
+.showcase-item .info .nm {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--paper);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.showcase-item .info .st {
+  font-size: 11px;
+  color: var(--paper-dim);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.showcase-item .info .st .lang {
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 10px;
+}
+.showcase-item .info .pr {
+  font-size: 13px;
+  color: var(--coll-accent);
+  margin-top: 6px;
+}
+
+/* ============================================================
+   Recherche de cartes
+   ============================================================ */
+
+.search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.search-bar input {
+  flex: 1;
+}
+.search-hint {
+  font-size: 12px;
+  color: var(--paper-dim);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+.search-error {
+  background: var(--surface-2);
+  border: 1px solid var(--loss);
+  color: var(--paper);
+  padding: 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  text-align: center;
+}
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 12px;
+}
+.result-item {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  font-family: inherit;
+  color: inherit;
+}
+.result-item:hover {
+  border-color: var(--coll-accent);
+}
+.result-item .thumb {
+  aspect-ratio: 3 / 4;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.result-item .thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.result-item .meta {
+  padding: 8px 9px 10px;
+}
+.result-item .meta .nm {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.result-item .meta .st {
+  font-size: 10.5px;
+  color: var(--paper-dim);
+  margin-top: 2px;
+}
+.result-item .meta .pr {
+  font-size: 12.5px;
+  color: var(--coll-accent);
+  margin-top: 5px;
+}
+
+/* ============================================================
+   Formulaire carte
+   ============================================================ */
+
+.card-form .form-preview {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.card-form .form-preview img {
+  max-height: 190px;
+  border-radius: 8px;
+}
+.market-note {
+  font-size: 13px;
+  color: var(--paper-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+.market-note strong {
+  color: var(--paper);
+}
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* ============================================================
+   Sheet (panneau modal)
+   ============================================================ */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(5, 7, 10, 0.62);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+@media (min-width: 760px) {
+  .sheet-backdrop {
+    align-items: center;
+  }
+}
+.sheet {
+  width: 100%;
+  max-width: 560px;
+  max-height: 92dvh;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow);
+}
+@media (min-width: 760px) {
+  .sheet {
+    border-radius: 16px;
+    max-height: 88dvh;
+  }
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.sheet-head h2 {
+  font-size: 18px;
+}
+.sheet-close {
+  background: none;
+  border: none;
+  color: var(--paper-dim);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.sheet-body {
+  padding: 18px;
+  overflow-y: auto;
+  padding-bottom: calc(18px + env(safe-area-inset-bottom));
+}

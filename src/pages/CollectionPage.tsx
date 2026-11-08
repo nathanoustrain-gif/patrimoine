@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { IconCards, IconBox, IconWealth, IconPlus } from "../components/Icons";
+import { IconBox, IconWealth, IconPlus } from "../components/Icons";
+import CardsTab from "../components/cards/CardsTab";
 
 type Tab = "cartes" | "scelle" | "tableau";
 
@@ -33,26 +34,7 @@ export default function CollectionPage() {
         ))}
       </div>
 
-      {tab === "cartes" && (
-        <div className="empty-state">
-          <div className="icon">
-            <IconCards size={46} />
-          </div>
-          <h3>Aucune carte pour l'instant</h3>
-          <p>
-            Recherchez une carte par nom ou extension : l'image, le set et le prix
-            du marché seront récupérés automatiquement.
-          </p>
-          <button className="btn primary" disabled>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <IconPlus size={16} /> Ajouter une carte
-            </span>
-          </button>
-          <p style={{ marginTop: 14, fontSize: 12 }} className="accent">
-            Recherche de cartes — prochaine étape
-          </p>
-        </div>
-      )}
+      {tab === "cartes" && <CardsTab />}
 
       {tab === "scelle" && (
         <div className="empty-state">

@@ -1,14 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { db } from "../db/db";
+import { getSetting, setSetting, SETTINGS_KEYS } from "../lib/settings";
 
 const TABLES = ["cards", "sealed", "snapshots", "settings"] as const;
 
 export default function SettingsPage() {
   const [msg, setMsg] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState("");
+
+  useEffect(() => {
+    getSetting<string>(SETTINGS_KEYS.pokeApiKey, "").then((v) => setApiKey(v ?? ""));
+  }, []);
 
   function flash(m: string) {
     setMsg(m);
     setTimeout(() => setMsg(null), 2600);
+  }
+
+  async function saveApiKey() {
+    await setSetting(SETTINGS_KEYS.pokeApiKey, apiKey.trim());
+    flash("Clé API enregistrée");
   }
 
   async function exportBackup() {
@@ -58,6 +69,27 @@ export default function SettingsPage() {
         <div>
           <h1>Réglages</h1>
           <div className="sub">Sauvegarde & préférences</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="section">Clé API pokemontcg.io</h2>
+        <p style={{ color: "var(--paper-dim)", fontSize: 13.5, marginTop: 0, marginBottom: 16 }}>
+          Optionnelle mais recommandée : elle fiabilise la recherche de cartes et
+          augmente les quotas. Clé gratuite sur dev.pokemontcg.io.
+        </p>
+        <div className="field">
+          <label>Clé API</label>
+          <input
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="Votre clé (optionnel)"
+          />
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+          <button className="btn primary" onClick={saveApiKey}>
+            Enregistrer
+          </button>
         </div>
       </div>
 
