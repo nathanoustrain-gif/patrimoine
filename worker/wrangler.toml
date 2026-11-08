@@ -1,0 +1,16 @@
+name = "patrimoine-crypto"
+main = "src/index.js"
+compatibility_date = "2025-11-01"
+
+# Variables non secrètes (modifiables ici).
+# ALLOWED_ORIGINS limite qui peut appeler le Worker (recommandé).
+[vars]
+ALLOWED_ORIGINS = "https://nathanoustrain-gif.github.io,http://localhost:5173"
+
+# Les SECRETS ne vont PAS ici (jamais en clair). On les ajoute via :
+#   npx wrangler secret put CLIENT_TOKEN
+#   npx wrangler secret put OKX_ME_KEY
+#   npx wrangler secret put OKX_ME_SECRET
+#   npx wrangler secret put OKX_ME_PASS
+#   npx wrangler secret put OKX_PAPA_KEY / OKX_PAPA_SECRET / OKX_PAPA_PASS
+#   npx wrangler secret put KRAKEN_ME_KEY / KRAKEN_ME_SECRET
