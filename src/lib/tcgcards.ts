@@ -187,14 +187,74 @@ function normNum(n?: string): string {
   if (!n) return "";
   return String(n).split("/")[0].trim().toLowerCase().replace(/^0+/, "");
 }
-function setLoose(s?: string): string {
-  return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+function firstToken(name: string): string {
+  const t = (name || "").split(/[\s\-–—]+/).filter(Boolean);
+  return t[0] || name;
 }
-function setMatch(a?: string, b?: string): boolean {
-  if (!a || !b) return true; // indulgent si une extension manque
-  const x = setLoose(a);
-  const y = setLoose(b);
-  return x === y || x.includes(y) || y.includes(x);
+
+function tokenize(s?: string): string[] {
+  return (s || "")
+    .toLowerCase()
+    .split(/[^a-z0-9àâäéèêëïîôöùûüç]+/i)
+    .filter((t) => t.length >= 2);
+}
+
+/** Nombre de mots d'extension en commun (recoupement). */
+function setScore(a?: string, b?: string): number {
+  if (!a || !b) return 0;
+  const A = new Set(tokenize(a));
+  let n = 0;
+  for (const t of tokenize(b)) if (A.has(t)) n++;
+  return n;
+}
+
+const setsCache: Record<string, { id: string; name: string }[]> = {};
+async function getSets(lang: string): Promise<{ id: string; name: string }[]> {
+  if (setsCache[lang]) return setsCache[lang];
+  const data = await tcgFetch(`/${lang}/sets`);
+  const arr = (Array.isArray(data) ? data : []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+  }));
+  setsCache[lang] = arr;
+  return arr;
+}
+
+async function findSetId(setName: string, lang: string): Promise<string | null> {
+  if (!setName) return null;
+  const sets = await getSets(lang);
+  let best: { id: string; score: number } | null = null;
+  for (const s of sets) {
+    const sc = setScore(setName, s.name);
+    if (sc > 0 && (!best || sc > best.score)) best = { id: s.id, score: sc };
+  }
+  return best ? best.id : null;
+}
+
+/** Choisit le meilleur candidat : exige un recoupement d'extension (sécurité). */
+function pickBest(
+  dets: ApiCard[],
+  cardSetName: string | undefined,
+  num: string,
+  needNum: boolean,
+): ApiCard | null {
+  if (dets.length === 0) return null;
+  let pool = dets;
+  if (needNum && num) {
+    const nm = pool.filter((d) => normNum(d.number) === num);
+    if (nm.length) pool = nm;
+  }
+  let best: ApiCard | null = null;
+  let bestScore = 0;
+  for (const d of pool) {
+    const sc = setScore(cardSetName, d.setName);
+    if (sc > bestScore) {
+      bestScore = sc;
+      best = d;
+    }
+  }
+  return bestScore >= 1 ? best : null;
 }
 
 export interface RelinkResult {
@@ -210,9 +270,12 @@ export interface RelinkResult {
 }
 
 /**
- * Relie une carte d'une ancienne source (id incompatible) à TCGdex :
- * recherche par nom (anglais, comme pokemontcg.io), puis correspondance sur le
- * numéro et l'extension. Renvoie le nouvel id + prix, ou null si pas de match sûr.
+ * Relie une carte d'une ancienne source (id incompatible) à TCGdex.
+ * Les métadonnées des anciennes cartes sont en ANGLAIS → on fait la
+ * correspondance en anglais : nom (1er mot) + numéro, puis par extension si la
+ * numérotation diffère (ex. Classic Collection). Le prix est ensuite récupéré
+ * dans la langue de la carte (avec repli). Une correspondance d'extension est
+ * exigée pour éviter toute fausse association.
  */
 export async function relinkCard(card: {
   name: string;
@@ -221,49 +284,67 @@ export async function relinkCard(card: {
   language?: string;
 }): Promise<RelinkResult | null> {
   if (!card.name) return null;
-  const priceLangPref = card.language
-    ? LANG_MAP[card.language] || "en"
-    : "en";
-  const targetNum = normNum(card.number);
+  const MATCH = "en";
+  const priceLang = LANG_MAP[card.language || ""] || "fr";
+  const num = normNum(card.number);
+  const term = firstToken(card.name).toLowerCase();
 
-  // Recherche précise par nom + numéro (localId) quand le numéro est connu.
-  let pool: { apiId: string }[] = [];
-  if (targetNum) {
+  async function detailsFor(ids: string[]): Promise<ApiCard[]> {
+    const out: ApiCard[] = [];
+    for (const id of ids.slice(0, 15)) {
+      if (isPocket(id)) continue;
+      const d = await fetchCardDetail(id, MATCH);
+      if (d) out.push(d);
+    }
+    return out;
+  }
+
+  let chosen: ApiCard | null = null;
+
+  // 1) nom (1er mot) + numéro
+  if (num) {
     const byNum = await tcgFetch(
-      `/en/cards?name=${encodeURIComponent(card.name)}&localId=${encodeURIComponent(targetNum)}`,
+      `/${MATCH}/cards?name=${encodeURIComponent(term)}&localId=${encodeURIComponent(num)}`,
     );
-    pool = (Array.isArray(byNum) ? byNum : [])
-      .filter((c) => !isPocket(c.id))
-      .map((c) => ({ apiId: c.id }));
-  }
-  // Repli : recherche par nom seul (noms exacts d'abord), limitée.
-  if (pool.length === 0) {
-    const { cards } = await searchCards(card.name, "en");
-    const exact = cards.filter(
-      (c) => c.name.toLowerCase() === card.name.toLowerCase(),
-    );
-    pool = (exact.length ? exact : cards).slice(0, 25);
+    const ids = (Array.isArray(byNum) ? byNum : []).map((c: any) => c.id);
+    chosen = pickBest(await detailsFor(ids), card.setName, num, true);
   }
 
-  for (const cand of pool) {
-    const d = await fetchCardDetail(cand.apiId, priceLangPref);
-    if (!d) continue;
-    const numOk = targetNum ? normNum(d.number) === targetNum : false;
-    if (numOk && setMatch(card.setName, d.setName)) {
-      return {
-        apiId: d.apiId,
-        apiLang: priceLangPref,
-        marketPrice: d.marketPrice,
-        marketPriceDate: d.marketPriceDate,
-        priceLang: d.priceLang,
-        image: d.image,
-        imageLarge: d.imageLarge,
-        setName: card.setName || d.setName,
-        number: card.number || d.number,
-      };
+  // 2) par extension (numérotation différente entre sources)
+  if (!chosen && card.setName) {
+    const setId = await findSetId(card.setName, MATCH);
+    if (setId) {
+      const setData = await tcgFetch(`/${MATCH}/sets/${setId}`);
+      const matchCards = ((setData && setData.cards) || []).filter((c: any) => {
+        const n = (c.name || "").toLowerCase();
+        return (
+          n === term ||
+          n.startsWith(term + " ") ||
+          n.startsWith(term + "-") ||
+          n.includes(term)
+        );
+      });
+      const ids = matchCards.map((c: any) => c.id);
+      chosen = pickBest(await detailsFor(ids), card.setName, num, false);
     }
   }
-  return null;
+
+  if (!chosen) return null;
+
+  // Prix dans la langue de la carte (repli auto vers une autre langue si besoin).
+  const priced = await fetchCardDetail(chosen.apiId, priceLang);
+  const src = priced && priced.marketPrice != null ? priced : chosen;
+  return {
+    apiId: chosen.apiId,
+    apiLang: priceLang,
+    marketPrice: src.marketPrice,
+    marketPriceDate: src.marketPriceDate,
+    priceLang: src.priceLang,
+    image: src.image || chosen.image,
+    imageLarge: src.imageLarge || chosen.imageLarge,
+    setName: card.setName || chosen.setName,
+    number: card.number || chosen.number,
+  };
 }
 
 /** Récupère les détails de plusieurs cartes, avec un pool de concurrence. */
