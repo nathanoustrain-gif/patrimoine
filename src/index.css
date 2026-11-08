@@ -994,3 +994,35 @@ input[readonly] {
 .pos-pl .pct {
   opacity: 0.85;
 }
+
+/* ============================================================
+   Bandeau mise à jour PWA
+   ============================================================ */
+
+.update-banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--nav-h) + 14px + env(safe-area-inset-bottom));
+  z-index: 70;
+  width: calc(100% - 24px);
+  max-width: var(--max-w);
+  background: var(--surface-2);
+  border: 1px solid var(--gold-line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.update-banner .ub-text {
+  font-size: 13.5px;
+  color: var(--paper);
+}
+.update-banner .ub-actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
