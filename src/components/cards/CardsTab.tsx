@@ -33,12 +33,39 @@ export default function CardsTab() {
     setTimeout(() => setMsg(null), 2600);
   }
 
-  // Auto-remplissage : complète en arrière-plan les cartes API sans prix
-  // (ex. cartes ajoutées trop tôt, avant que la cote soit publiée).
+  // Répare une carte sans prix : complète via son id, ou la relie à TCGdex
+  // (id cassé ou absent). Renvoie "updated" | "relinked" | "none".
+  async function repairCard(c: Card): Promise<"updated" | "relinked" | "none"> {
+    if (c.apiId) {
+      const d = await fetchCardDetail(c.apiId, c.apiLang || "fr");
+      if (d) {
+        // id valide : on met à jour le prix si dispo, mais on ne relie pas.
+        if (d.marketPrice != null) {
+          await db.cards.update(c.id, {
+            marketPrice: d.marketPrice,
+            marketPriceDate: d.marketPriceDate,
+            priceLang: d.priceLang,
+            updatedAt: Date.now(),
+          });
+          return "updated";
+        }
+        return "none";
+      }
+    }
+    // pas d'id, ou id introuvable dans TCGdex → reliaison par nom + numéro + extension
+    const rl = await relinkCard(c);
+    if (rl && rl.marketPrice != null) {
+      await db.cards.update(c.id, { ...rl, updatedAt: Date.now() });
+      return "relinked";
+    }
+    return "none";
+  }
+
+  // Auto-remplissage en arrière-plan des cartes sans prix à l'ouverture.
   useEffect(() => {
     if (!cards || healed) return;
     const missing = cards.filter(
-      (c) => c.apiId && c.marketPrice == null && c.manualPrice == null,
+      (c) => c.marketPrice == null && c.manualPrice == null && c.name,
     );
     setHealed(true);
     if (missing.length === 0) return;
@@ -46,22 +73,7 @@ export default function CardsTab() {
       let relinked = 0;
       for (const c of missing) {
         try {
-          const d = await fetchCardDetail(c.apiId!, c.apiLang || "fr");
-          if (d && d.marketPrice != null) {
-            await db.cards.update(c.id, {
-              marketPrice: d.marketPrice,
-              marketPriceDate: d.marketPriceDate,
-              priceLang: d.priceLang,
-              updatedAt: Date.now(),
-            });
-          } else if (!d) {
-            // identifiant cassé (ancienne source) → reliaison TCGdex
-            const rl = await relinkCard(c);
-            if (rl) {
-              await db.cards.update(c.id, { ...rl, updatedAt: Date.now() });
-              relinked++;
-            }
-          }
+          if ((await repairCard(c)) === "relinked") relinked++;
         } catch {
           /* on continue */
         }
@@ -79,7 +91,6 @@ export default function CardsTab() {
     0,
   );
   const pv = totalValue - totalCost;
-  const hasApi = cards.some((c) => c.apiId);
   const lastUpdate = cards.reduce(
     (m, c) => (c.marketPriceDate && c.marketPriceDate > m ? c.marketPriceDate : m),
     0,
@@ -87,27 +98,42 @@ export default function CardsTab() {
 
   async function refreshPrices() {
     setRefreshing(true);
-    let n = 0;
+    let updated = 0;
+    let relinked = 0;
+    let notFound = 0;
     for (const c of cards!) {
-      if (!c.apiId) continue;
+      if (c.manualPrice != null) continue; // prix forcé : on n'y touche pas
       try {
-        const fresh = await fetchCardDetail(c.apiId, c.apiLang || "fr");
-        if (fresh && fresh.marketPrice != null) {
-          await db.cards.update(c.id, {
-            marketPrice: fresh.marketPrice,
-            marketPriceDate: fresh.marketPriceDate,
-            priceLang: fresh.priceLang,
-            updatedAt: Date.now(),
-          });
-          n++;
+        if (c.apiId && c.marketPrice != null) {
+          // carte déjà reliée et cotée : simple rafraîchissement
+          const fresh = await fetchCardDetail(c.apiId, c.apiLang || "fr");
+          if (fresh && fresh.marketPrice != null) {
+            await db.cards.update(c.id, {
+              marketPrice: fresh.marketPrice,
+              marketPriceDate: fresh.marketPriceDate,
+              priceLang: fresh.priceLang,
+              updatedAt: Date.now(),
+            });
+            updated++;
+          }
+        } else {
+          // carte sans prix : réparation (complétion ou reliaison)
+          const res = await repairCard(c);
+          if (res === "updated") updated++;
+          else if (res === "relinked") relinked++;
+          else notFound++;
         }
       } catch {
-        /* ignore, on continue */
+        notFound++;
       }
     }
-    if (n > 0) await upsertTodaySnapshot();
+    await upsertTodaySnapshot();
     setRefreshing(false);
-    flash(n > 0 ? `${n} prix mis à jour` : "Aucun prix mis à jour");
+    const parts = [];
+    if (updated) parts.push(`${updated} à jour`);
+    if (relinked) parts.push(`${relinked} reliée(s)`);
+    if (notFound) parts.push(`${notFound} sans cote`);
+    flash(parts.length ? parts.join(" · ") : "Rien à mettre à jour");
   }
 
   return (
@@ -153,16 +179,14 @@ export default function CardsTab() {
             </div>
           </div>
 
-          {hasApi && (
-            <div className="refresh-row">
-              <span className="muted">
-                {lastUpdate ? "Prix marché maj " + fmtDate(lastUpdate) : ""}
-              </span>
-              <button className="btn small" onClick={refreshPrices} disabled={refreshing}>
-                {refreshing ? "Rafraîchissement…" : "Rafraîchir les prix"}
-              </button>
-            </div>
-          )}
+          <div className="refresh-row">
+            <span className="muted">
+              {lastUpdate ? "Prix marché maj " + fmtDate(lastUpdate) : ""}
+            </span>
+            <button className="btn small" onClick={refreshPrices} disabled={refreshing}>
+              {refreshing ? "Mise à jour…" : "Réparer / rafraîchir les prix"}
+            </button>
+          </div>
 
           <div className="sort-row">
             <SortSelect value={sort} onChange={changeSort} extensionLabel="Extension" />
