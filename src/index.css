@@ -1,0 +1,417 @@
+/* ============================================================
+   Patrimoine — design tokens & base styles
+   Ambiance V1 (sombre, éditoriale, accent doré) modernisée.
+   ============================================================ */
+
+:root {
+  /* Fonds & surfaces */
+  --ink: #0e1116;
+  --ink-2: #0b0e13;
+  --surface: #161b23;
+  --surface-2: #1d232e;
+  --surface-3: #252c39;
+
+  /* Traits */
+  --line: #2a313d;
+  --line-soft: rgba(255, 255, 255, 0.06);
+
+  /* Texte */
+  --paper: #ece9df;
+  --paper-dim: #9fa096;
+  --paper-faint: #6d6f68;
+
+  /* Accents */
+  --gold: #cda451;
+  --gold-soft: rgba(205, 164, 81, 0.14);
+  --gold-line: rgba(205, 164, 81, 0.35);
+  --gain: #5fa888;
+  --loss: #c66a4d;
+
+  /* Spécifique module Collection (ambiance "vitrine") */
+  --coll-bg: radial-gradient(130% 90% at 50% -10%, #1c2331 0%, #10141b 55%, #0c0f15 100%);
+  --coll-accent: #7ea2d6;
+  --coll-accent-soft: rgba(126, 162, 214, 0.14);
+
+  /* Rayons & ombres */
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 18px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+
+  /* Mise en page */
+  --max-w: 760px;
+  --nav-h: 64px;
+  --header-h: 60px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+body {
+  font-family: "Public Sans", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Newsreader", Georgia, serif;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--paper);
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--gold-soft);
+}
+
+/* --- Scrollbar discrète --- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 8px;
+}
+
+/* ============================================================
+   Layout shell
+   ============================================================ */
+
+.app-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  padding-top: env(safe-area-inset-top);
+  background: rgba(14, 17, 22, 0.82);
+  backdrop-filter: saturate(140%) blur(12px);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.app-header .brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.app-header .brand .mark {
+  font-family: "Newsreader", serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--paper);
+}
+.app-header .brand .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+  display: inline-block;
+  margin-bottom: 2px;
+}
+.app-header .ctx {
+  font-size: 12px;
+  color: var(--paper-faint);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.app-main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 22px 18px calc(var(--nav-h) + 28px + env(safe-area-inset-bottom));
+}
+
+/* ============================================================
+   Bottom navigation (mobile-first)
+   ============================================================ */
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  background: rgba(13, 16, 21, 0.9);
+  backdrop-filter: saturate(140%) blur(14px);
+  border-top: 1px solid var(--line);
+}
+
+.bottom-nav a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--paper-faint);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  transition: color 0.15s ease;
+}
+.bottom-nav a svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.6;
+}
+.bottom-nav a.active {
+  color: var(--gold);
+}
+.bottom-nav a.active.coll {
+  color: var(--coll-accent);
+}
+
+/* On centre/limite la nav sur grand écran */
+@media (min-width: 760px) {
+  .bottom-nav {
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: var(--max-w);
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    border-radius: 14px 14px 0 0;
+  }
+}
+
+/* ============================================================
+   Cartes / blocs
+   ============================================================ */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.card h2.section {
+  font-size: 12px;
+  color: var(--paper-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: "Public Sans", sans-serif;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.page-title {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.page-title h1 {
+  font-size: 26px;
+}
+.page-title .sub {
+  font-size: 13px;
+  color: var(--paper-dim);
+  margin-top: 3px;
+}
+
+/* Sous-onglets (segmented) */
+.segmented {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 18px;
+}
+.segmented button {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--paper-dim);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.segmented button.active {
+  background: var(--surface-3);
+  color: var(--paper);
+}
+
+/* Boutons */
+.btn {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--paper);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.btn:hover {
+  border-color: var(--gold-line);
+}
+.btn.primary {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #1a1407;
+  font-weight: 600;
+}
+.btn.primary:hover {
+  opacity: 0.92;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--paper-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* État vide */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--paper-dim);
+}
+.empty-state .icon {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 16px;
+  color: var(--paper-faint);
+}
+.empty-state h3 {
+  font-size: 19px;
+  margin-bottom: 8px;
+  color: var(--paper);
+}
+.empty-state p {
+  font-size: 13.5px;
+  max-width: 340px;
+  margin: 0 auto 20px;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   Module Collection — ambiance "vitrine"
+   ============================================================ */
+
+.collection-scope {
+  /* fond légèrement différent, plus profond/bleuté */
+  margin: -22px -18px 0;
+  padding: 22px 18px 0;
+  background: var(--coll-bg);
+  min-height: calc(100dvh - var(--header-h));
+}
+.collection-scope .segmented button.active {
+  color: var(--paper);
+}
+.collection-scope .btn.primary {
+  background: var(--coll-accent);
+  border-color: var(--coll-accent);
+  color: #0b1018;
+}
+.collection-scope .empty-state .accent {
+  color: var(--coll-accent);
+}
+
+/* Grille d'items / cartes (vitrine) */
+.showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+}
+.showcase-item {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.showcase-item .thumb {
+  aspect-ratio: 3 / 4;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--paper-faint);
+}
+
+/* ============================================================
+   Toast
+   ============================================================ */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--nav-h) + 20px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  background: var(--surface-2);
+  border: 1px solid var(--gold-line);
+  color: var(--paper);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  box-shadow: var(--shadow);
+  z-index: 60;
+}

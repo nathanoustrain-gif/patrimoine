@@ -1,0 +1,87 @@
+import Dexie, { type EntityTable } from "dexie";
+
+/* ============================================================
+   Modèle de données — V1 (module Collection prioritaire)
+   Stockage 100% local via IndexedDB.
+   ============================================================ */
+
+/** Carte à l'unité */
+export interface Card {
+  id: string;
+  /** id de la carte dans l'API pokemontcg.io (si trouvée automatiquement) */
+  apiId?: string;
+  name: string;
+  setName?: string;
+  /** numéro dans l'extension, ex : "25/102" */
+  number?: string;
+  /** URL de l'image (petite / grande) */
+  image?: string;
+  imageLarge?: string;
+  language: string; // "EN", "FR", "JP"...
+  condition: string; // "NM", "EX"...
+  quantity: number;
+  purchasePrice?: number;
+  purchaseDate?: string; // ISO yyyy-mm-dd
+  /** prix de marché récupéré via l'API (Cardmarket) */
+  marketPrice?: number;
+  marketPriceDate?: number; // timestamp de la dernière MAJ
+  /** prix saisi/forcé à la main (prioritaire sur le prix API s'il est défini) */
+  manualPrice?: number;
+  note?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Produit scellé (ETB, bundle, display, coffret...) */
+export interface Sealed {
+  id: string;
+  name: string;
+  setName?: string;
+  type?: string; // "ETB", "Bundle", "Display", "Coffret"...
+  image?: string;
+  quantity: number;
+  purchasePrice?: number; // unitaire
+  purchaseDate?: string;
+  purchaseLocation?: string;
+  /** prix de marché saisi à la main en V1 */
+  marketPrice?: number;
+  marketPriceDate?: number;
+  note?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Instantané de la valeur de la collection, pris à chaque MAJ des prix */
+export interface Snapshot {
+  id: string;
+  date: number; // timestamp
+  cardsValue: number;
+  sealedValue: number;
+  totalValue: number;
+  totalCost: number;
+}
+
+/** Réglages clé/valeur (clé API, préférences...) */
+export interface Setting {
+  key: string;
+  value: unknown;
+}
+
+export const db = new Dexie("PatrimoineDB") as Dexie & {
+  cards: EntityTable<Card, "id">;
+  sealed: EntityTable<Sealed, "id">;
+  snapshots: EntityTable<Snapshot, "id">;
+  settings: EntityTable<Setting, "key">;
+};
+
+db.version(1).stores({
+  cards: "id, name, setName, language",
+  sealed: "id, name, setName, type",
+  snapshots: "id, date",
+  settings: "key",
+});
+
+/** Identifiant court unique */
+export function uid(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
