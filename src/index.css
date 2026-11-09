@@ -537,6 +537,55 @@ input[readonly] {
   color: var(--paper-faint);
 }
 
+/* Bandeau d'alertes de prix */
+.alert-banner {
+  background: var(--coll-accent-soft);
+  border: 1px solid var(--coll-accent);
+  border-radius: var(--radius);
+  padding: 11px 13px;
+  margin-bottom: 14px;
+}
+.alert-banner .ab-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.alert-banner .ab-head strong {
+  font-size: 13.5px;
+  color: var(--coll-accent);
+}
+.alert-banner ul {
+  list-style: none;
+  margin: 9px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.alert-banner li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+.alert-banner .ab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.alert-banner .ab-val {
+  flex-shrink: 0;
+  font-size: 12.5px;
+}
+.alert-banner .pos {
+  color: var(--gain);
+}
+.alert-banner .neg {
+  color: var(--loss);
+}
+
 .showcase-item.tappable {
   cursor: pointer;
   text-align: left;

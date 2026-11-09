@@ -4,6 +4,8 @@ import { db, type Card } from "../../db/db";
 import { fmtEUR, fmtDate } from "../../lib/format";
 import { fetchCardDetail, relinkCard, type ApiCard } from "../../lib/tcgcards";
 import { upsertTodaySnapshot, cardPrice } from "../../lib/collection";
+import { recordAllToday, deleteCardHistory } from "../../lib/pricehistory";
+import { pendingAlerts, ackAlerts, checkAlerts } from "../../lib/alerts";
 import { sortItems, SortSelect, type SortKey } from "../SortSelect";
 import Sheet from "../Sheet";
 import CardSearch from "./CardSearch";
@@ -89,13 +91,16 @@ export default function CardsTab() {
   // Auto-réparation en arrière-plan des cartes sans prix OU sans image.
   useEffect(() => {
     if (!cards || healed) return;
+    setHealed(true);
+    // Point d'historique du jour avec les prix actuels (un par carte/jour),
+    // puis vérification des seuils d'alerte.
+    recordAllToday().then(() => checkAlerts());
     const todo = cards.filter(
       (c) =>
         c.manualPrice == null &&
         c.name &&
         (c.marketPrice == null || !c.image),
     );
-    setHealed(true);
     if (todo.length === 0) return;
     (async () => {
       let n = 0;
@@ -107,12 +112,17 @@ export default function CardsTab() {
           /* on continue */
         }
       }
-      if (n > 0) flash(`${n} carte(s) réparée(s)`);
+      if (n > 0) {
+        flash(`${n} carte(s) réparée(s)`);
+        // Ré-enregistre le point du jour avec les prix réparés, puis alertes.
+        recordAllToday().then(() => checkAlerts());
+      }
     })();
   }, [cards, healed]);
 
   if (!cards) return null;
 
+  const alerts = pendingAlerts(cards);
   const sorted = sortItems(cards, sort, cardPrice, "setName");
   const totalValue = cards.reduce((s, c) => s + c.quantity * cardPrice(c), 0);
   const totalCost = cards.reduce(
@@ -142,6 +152,8 @@ export default function CardsTab() {
       }
     }
     await upsertTodaySnapshot();
+    await recordAllToday();
+    await checkAlerts();
     setRefreshing(false);
     const parts = [];
     if (updated) parts.push(`${updated} à jour`);
@@ -152,6 +164,33 @@ export default function CardsTab() {
 
   return (
     <div>
+      {alerts.length > 0 && (
+        <div className="alert-banner">
+          <div className="ab-head">
+            <strong>
+              🔔 {alerts.length} carte{alerts.length > 1 ? "s" : ""} au seuil de
+              prix
+            </strong>
+            <button className="btn small" onClick={() => ackAlerts(cards!)}>
+              Vu
+            </button>
+          </div>
+          <ul>
+            {alerts.map((a) => (
+              <li key={a.card.id}>
+                <span className="ab-name">{a.card.name}</span>
+                <span className="ab-val mono">
+                  {fmtEUR(a.price)}{" "}
+                  <span className={a.side === "above" ? "pos" : "neg"}>
+                    {a.side === "above" ? "≥" : "≤"} {fmtEUR(a.threshold)}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="toolbar">
         <button className="btn primary" onClick={() => setSearchOpen(true)}>
           <span className="btn-ic">
@@ -263,6 +302,7 @@ export default function CardsTab() {
             onDone={() => setEditing(null)}
             onDelete={async () => {
               await db.cards.delete(editing.id);
+              await deleteCardHistory(editing.id);
               setEditing(null);
               flash("Carte supprimée");
             }}

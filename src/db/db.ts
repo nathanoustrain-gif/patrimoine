@@ -31,6 +31,12 @@ export interface Card {
   priceLang?: string;
   /** prix saisi/forcé à la main (prioritaire sur le prix API s'il est défini) */
   manualPrice?: number;
+  /** seuils d'alerte sur le prix effectif (€) */
+  alertAbove?: number;
+  alertBelow?: number;
+  /** état d'alerte courant : côté déclenché + acquittement (vu) */
+  alertHit?: "above" | "below";
+  alertSeen?: boolean;
   note?: string;
   createdAt: number;
   updatedAt: number;
@@ -63,6 +69,14 @@ export interface Snapshot {
   sealedValue: number;
   totalValue: number;
   totalCost: number;
+}
+
+/** Point d'historique de prix d'une carte (un par carte et par jour). */
+export interface PriceHistory {
+  id: string; // cardId + ":" + YYYY-MM-DD
+  cardId: string;
+  date: string; // YYYY-MM-DD
+  price: number; // prix effectif (cardPrice) ce jour-là
 }
 
 /** Réglages clé/valeur (clé API, préférences...) */
@@ -112,6 +126,7 @@ export const db = new Dexie("PatrimoineDB") as Dexie & {
   settings: EntityTable<Setting, "key">;
   accounts: EntityTable<Account, "id">;
   positions: EntityTable<Position, "id">;
+  priceHistory: EntityTable<PriceHistory, "id">;
 };
 
 db.version(1).stores({
@@ -124,6 +139,10 @@ db.version(1).stores({
 db.version(2).stores({
   accounts: "id, type",
   positions: "id, accountId, assetType",
+});
+
+db.version(3).stores({
+  priceHistory: "id, cardId, date",
 });
 
 /** Identifiant court unique */

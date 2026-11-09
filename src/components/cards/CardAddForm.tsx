@@ -3,6 +3,9 @@ import { db, uid, type Card } from "../../db/db";
 import { fetchCardDetail, type ApiCard } from "../../lib/tcgcards";
 import { fmtEUR, fmtDate } from "../../lib/format";
 import { conditionFactor } from "../../lib/collection";
+import { getCardHistory, recordCardToday } from "../../lib/pricehistory";
+import { checkAlerts } from "../../lib/alerts";
+import LineChart, { type Point } from "../charts/LineChart";
 
 export const CONDITIONS = ["MT", "NM", "EX", "GD", "LP", "PL", "PO"];
 export const LANGUAGES = ["EN", "FR", "JP", "DE", "IT", "ES"];
@@ -81,7 +84,21 @@ export default function CardAddForm({
         : "",
   );
 
+  // Seuils d'alerte de prix (optionnels).
+  const [alertAbove, setAlertAbove] = useState(
+    initial?.alertAbove != null ? String(initial.alertAbove) : "",
+  );
+  const [alertBelow, setAlertBelow] = useState(
+    initial?.alertBelow != null ? String(initial.alertBelow) : "",
+  );
+
   const [saving, setSaving] = useState(false);
+
+  // Historique de prix (mode édition uniquement).
+  const [history, setHistory] = useState<Point[]>([]);
+  useEffect(() => {
+    if (initial?.id) getCardHistory(initial.id).then(setHistory);
+  }, [initial?.id]);
 
   // Récupère le prix quand on change la langue, OU si la carte n'a pas de prix
   // (repli automatique sur une autre langue via le service).
@@ -121,6 +138,11 @@ export default function CardAddForm({
     setSaving(true);
     const now = Date.now();
     const mp = manualPrice.trim() === "" ? undefined : parseFloat(manualPrice);
+    const above = alertAbove.trim() === "" ? undefined : parseFloat(alertAbove);
+    const below = alertBelow.trim() === "" ? undefined : parseFloat(alertBelow);
+    // Si les seuils changent, on réinitialise l'état d'alerte (ré-évalué ensuite).
+    const thresholdsChanged =
+      above !== initial?.alertAbove || below !== initial?.alertBelow;
 
     const card: Card = {
       id: initial?.id ?? uid(),
@@ -145,9 +167,16 @@ export default function CardAddForm({
       marketPriceDate: isApi ? apiPriceDate : mp != null ? now : undefined,
       priceLang: isApi ? priceLang : undefined,
       manualPrice: isApi ? mp : undefined,
+      // Alertes
+      alertAbove: above,
+      alertBelow: below,
+      alertHit: thresholdsChanged ? undefined : initial?.alertHit,
+      alertSeen: thresholdsChanged ? undefined : initial?.alertSeen,
     };
 
     await db.cards.put(card);
+    await recordCardToday(card.id);
+    await checkAlerts();
     setSaving(false);
     onDone();
   }
@@ -305,6 +334,36 @@ export default function CardAddForm({
           placeholder={isApi ? "laisser vide pour garder le prix API" : "0,00"}
         />
       </div>
+
+      <div className="field-row">
+        <div className="field">
+          <label>Alerte si prix ≥ (€)</label>
+          <input
+            type="number"
+            step="any"
+            value={alertAbove}
+            onChange={(e) => setAlertAbove(e.target.value)}
+            placeholder="optionnel"
+          />
+        </div>
+        <div className="field">
+          <label>Alerte si prix ≤ (€)</label>
+          <input
+            type="number"
+            step="any"
+            value={alertBelow}
+            onChange={(e) => setAlertBelow(e.target.value)}
+            placeholder="optionnel"
+          />
+        </div>
+      </div>
+
+      {initial && (
+        <div className="field">
+          <label>Évolution du prix</label>
+          <LineChart points={history} height={120} />
+        </div>
+      )}
 
       <div className="field">
         <label>Note (optionnel)</label>
