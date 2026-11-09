@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { db } from "../db/db";
 import { getSetting, setSetting, SETTINGS_KEYS } from "../lib/settings";
+import { useAuthUser, signInGoogle, signOutUser } from "../lib/auth";
 
 const TABLES = ["cards", "sealed", "snapshots", "settings"] as const;
 
@@ -9,6 +10,7 @@ export default function SettingsPage() {
   const [tdKey, setTdKey] = useState("");
   const [workerUrl, setWorkerUrl] = useState("");
   const [workerToken, setWorkerToken] = useState("");
+  const user = useAuthUser();
 
   useEffect(() => {
     getSetting<string>(SETTINGS_KEYS.twelveDataApiKey, "").then((v) =>
@@ -36,6 +38,18 @@ export default function SettingsPage() {
     await setSetting(SETTINGS_KEYS.cryptoWorkerUrl, workerUrl.trim());
     await setSetting(SETTINGS_KEYS.cryptoWorkerToken, workerToken.trim());
     flash("Backend crypto enregistré");
+  }
+
+  async function doSignIn() {
+    try {
+      await signInGoogle();
+      flash("Connecté");
+    } catch (e) {
+      flash(
+        "Échec connexion : " +
+          (e instanceof Error ? e.message : "réessaie"),
+      );
+    }
   }
 
   async function exportBackup() {
@@ -86,6 +100,39 @@ export default function SettingsPage() {
           <h1>Réglages</h1>
           <div className="sub">Sauvegarde & préférences</div>
         </div>
+      </div>
+
+      <div className="card">
+        <h2 className="section">Synchronisation cloud</h2>
+        {user === undefined ? (
+          <p style={{ color: "var(--paper-dim)", fontSize: 13.5, margin: 0 }}>
+            Chargement…
+          </p>
+        ) : user ? (
+          <>
+            <p style={{ color: "var(--paper-dim)", fontSize: 13.5, marginTop: 0, marginBottom: 14 }}>
+              Connecté en tant que <strong style={{ color: "var(--paper)" }}>{user.email}</strong>.
+              Tes données se synchroniseront sur tes appareils.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button className="btn" onClick={() => signOutUser()}>
+                Se déconnecter
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p style={{ color: "var(--paper-dim)", fontSize: 13.5, marginTop: 0, marginBottom: 14 }}>
+              Connecte-toi pour retrouver ta collection et ton patrimoine sur tous
+              tes appareils (PC, téléphone), synchronisés automatiquement.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button className="btn primary" onClick={doSignIn}>
+                Se connecter avec Google
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="card">
