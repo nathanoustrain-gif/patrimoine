@@ -4,14 +4,24 @@ import Header from "./components/Header";
 import BottomNav from "./components/BottomNav";
 import UpdateBanner from "./components/UpdateBanner";
 import { recategorizeSealed } from "./lib/migrations";
+import { useAuthUser } from "./lib/auth";
+import { startSync, stopSync } from "./lib/cloudsync";
 import CollectionPage from "./pages/CollectionPage";
 import PatrimoinePage from "./pages/PatrimoinePage";
 import SettingsPage from "./pages/SettingsPage";
 
 export default function App() {
+  const user = useAuthUser();
+
   useEffect(() => {
     recategorizeSealed();
   }, []);
+
+  // Démarre/arrête la synchro cloud selon l'état de connexion.
+  useEffect(() => {
+    if (user) startSync(user.uid);
+    else if (user === null) stopSync();
+  }, [user]);
 
   return (
     <div className="app-shell">

@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 
 // Config web Firebase — publique par nature (l'accès aux données est protégé par
 // les règles de sécurité Firestore : chacun ne voit que ses propres données).
@@ -15,5 +15,9 @@ const firebaseConfig = {
 
 export const fbApp = initializeApp(firebaseConfig);
 export const fbAuth = getAuth(fbApp);
-export const fbStore = getFirestore(fbApp);
+// ignoreUndefinedProperties : nos enregistrements ont des champs optionnels
+// (undefined) que Firestore refuserait sinon.
+export const fbStore = initializeFirestore(fbApp, {
+  ignoreUndefinedProperties: true,
+});
 export const googleProvider = new GoogleAuthProvider();
