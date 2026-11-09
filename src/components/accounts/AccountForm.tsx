@@ -2,6 +2,7 @@ import { useState } from "react";
 import { db, uid, type Account } from "../../db/db";
 import { ACCOUNT_TYPES } from "../../lib/patrimoine";
 import { EXCHANGE_ACCOUNTS } from "../../lib/exchanges";
+import { fmtEUR } from "../../lib/format";
 
 type Props = {
   initial?: Account;
@@ -120,6 +121,25 @@ export default function AccountForm({ initial, onDone, onDelete }: Props) {
           Le solde de ce compte sera récupéré automatiquement depuis l'exchange
           (via ton backend crypto, configuré dans Réglages).
         </p>
+      )}
+
+      {isExchange && initial?.exchangeAssets && initial.exchangeAssets.length > 0 && (
+        <div className="field">
+          <label>Détail des actifs</label>
+          <div className="holdings">
+            {initial.exchangeAssets.map((a) => (
+              <div className="holding-row" key={a.symbol}>
+                <span className="hsym">{a.symbol}</span>
+                <span className="hamt mono">
+                  {a.amount.toLocaleString("fr-FR", { maximumFractionDigits: 8 })}
+                </span>
+                <span className="hval mono">
+                  {a.eur != null ? fmtEUR(a.eur) : "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {isTradable && (

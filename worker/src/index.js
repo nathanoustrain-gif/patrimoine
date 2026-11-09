@@ -57,15 +57,18 @@ async function sha256(msg) {
 }
 
 /* ---------- OKX ---------- */
-async function okxGet(path, env, acct) {
-  const key = env[`OKX_${acct}_KEY`];
-  const secret = env[`OKX_${acct}_SECRET`];
-  const pass = env[`OKX_${acct}_PASS`];
-  if (!key || !secret || !pass) throw new Error("OKX secrets manquants: " + acct);
+// OKX a des entités régionales : une clé n'est reconnue que sur son domaine.
+// EEA (Europe) → eea.okx.com, global → www.okx.com, US → us.okx.com.
+const OKX_HOSTS = [
+  "https://eea.okx.com",
+  "https://www.okx.com",
+  "https://us.okx.com",
+];
+
+async function okxSignedGet(host, path, key, secret, pass) {
   const ts = new Date().toISOString();
-  const prehash = ts + "GET" + path;
-  const sign = b64(await hmac(enc.encode(secret), prehash, "SHA-256"));
-  const res = await fetch("https://www.okx.com" + path, {
+  const sign = b64(await hmac(enc.encode(secret), ts + "GET" + path, "SHA-256"));
+  const res = await fetch(host + path, {
     headers: {
       "OK-ACCESS-KEY": key,
       "OK-ACCESS-SIGN": sign,
@@ -76,25 +79,110 @@ async function okxGet(path, env, acct) {
   return res.json();
 }
 
-async function okxBalances(env, acct) {
-  const totals = {}; // symbol -> amount
-  const add = (ccy, amt) => {
-    const a = parseFloat(amt);
-    if (!ccy || !a) return;
-    totals[ccy] = (totals[ccy] || 0) + a;
-  };
-  // Compte de trading
-  const trading = await okxGet("/api/v5/account/balance", env, acct);
-  if (trading.code !== "0") throw new Error("OKX: " + (trading.msg || trading.code));
-  (trading.data?.[0]?.details || []).forEach((d) => add(d.ccy, d.eq));
-  // Compte de financement (funding)
+// Endpoint public OKX (prix de marché) — pas besoin de signer.
+async function okxPublic(host, path) {
   try {
-    const funding = await okxGet("/api/v5/asset/balances", env, acct);
-    (funding.data || []).forEach((d) => add(d.ccy, d.bal));
+    const res = await fetch(host + path);
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+async function tickerLast(host, instId) {
+  const d = await okxPublic(host, "/api/v5/market/ticker?instId=" + instId);
+  const p = parseFloat(d?.data?.[0]?.last);
+  return p > 0 ? p : null;
+}
+// Taux USD→EUR via un pair EUR d'OKX (repli 0.92).
+async function usdEurRate(host) {
+  return (
+    (await tickerLast(host, "USDT-EUR")) ||
+    (await tickerLast(host, "USDC-EUR")) ||
+    0.92
+  );
+}
+// Valorise un montant d'un actif en EUR via les tickers OKX (pour le funding).
+async function ccyToEur(host, ccy, amt, rate) {
+  if (ccy === "EUR") return amt;
+  // OKX Earn flexible : jeton "LY" + sous-jacent (ex. LYUSDC → USDC).
+  const base = ccy.startsWith("LY") && ccy.length > 2 ? ccy.slice(2) : ccy;
+  if (base === "EUR") return amt;
+  const eurPair = await tickerLast(host, base + "-EUR");
+  if (eurPair) return amt * eurPair;
+  const usdtPair = await tickerLast(host, base + "-USDT");
+  if (usdtPair) return amt * usdtPair * rate;
+  if (/USDT|USDC|DAI|^USD$/i.test(base)) return amt * rate; // stablecoins ≈ 1 USD
+  return null;
+}
+
+async function okxBalances(env, acct) {
+  const key = env[`OKX_${acct}_KEY`];
+  const secret = env[`OKX_${acct}_SECRET`];
+  const pass = env[`OKX_${acct}_PASS`];
+  if (!key || !secret || !pass) throw new Error("OKX secrets manquants: " + acct);
+
+  // Détecte le bon domaine régional via /account/balance.
+  let host = null;
+  let trading = null;
+  let lastErr = "";
+  for (const h of OKX_HOSTS) {
+    const d = await okxSignedGet(h, "/api/v5/account/balance", key, secret, pass);
+    if (d.code === "0") {
+      host = h;
+      trading = d;
+      break;
+    }
+    lastErr = d.msg || d.code || "";
+    if (String(d.code) !== "50119") throw new Error("OKX: " + lastErr);
+  }
+  if (!host) throw new Error("OKX: clé introuvable (région ?) " + lastErr);
+
+  const rate = await usdEurRate(host);
+  const bySym = {}; // symbol -> { amount, eur, hasEur }
+  const addAsset = (sym, amount, eur) => {
+    if (!sym || (!amount && !eur)) return;
+    if (!bySym[sym]) bySym[sym] = { amount: 0, eur: 0, hasEur: false };
+    bySym[sym].amount += amount;
+    if (eur != null) {
+      bySym[sym].eur += eur;
+      bySym[sym].hasEur = true;
+    }
+  };
+
+  // Compte trading/unifié : OKX fournit déjà la valeur en USD (eqUsd).
+  (trading.data?.[0]?.details || []).forEach((d) => {
+    const amt = parseFloat(d.eq) || 0;
+    const usd = parseFloat(d.eqUsd) || 0;
+    if (!amt && !usd) return;
+    addAsset(d.ccy, amt, usd * rate);
+  });
+
+  // Compte de financement (funding) : valorisé via les tickers OKX.
+  try {
+    const funding = await okxSignedGet(
+      host,
+      "/api/v5/asset/balances",
+      key,
+      secret,
+      pass,
+    );
+    for (const d of funding.data || []) {
+      const amt = parseFloat(d.bal) || 0;
+      if (!amt) continue;
+      addAsset(d.ccy, amt, await ccyToEur(host, d.ccy, amt, rate));
+    }
   } catch {
     /* funding optionnel */
   }
-  return totals;
+
+  let totalEur = 0;
+  const assets = Object.entries(bySym).map(([symbol, v]) => {
+    const eur = v.hasEur ? v.eur : null;
+    if (eur != null) totalEur += eur;
+    return { symbol, amount: v.amount, eur };
+  });
+  assets.sort((a, b) => (b.eur || 0) - (a.eur || 0));
+  return { assets, totalEur };
 }
 
 /* ---------- Kraken ---------- */
@@ -136,7 +224,8 @@ async function krakenBalances(env, acct) {
     if (!a) continue;
     totals[normalizeKraken(asset)] = (totals[normalizeKraken(asset)] || 0) + a;
   }
-  return totals;
+  // Kraken n'a pas de valeur USD intégrée : conversion via CoinGecko (toEur).
+  return toEur(totals);
 }
 
 // Kraken préfixe ses actifs (XXBT, XETH, ZEUR…). On normalise en symboles usuels.
@@ -239,9 +328,10 @@ export default {
     const acct = m[2].toUpperCase();
 
     try {
-      const totals =
-        ex === "okx" ? await okxBalances(env, acct) : await krakenBalances(env, acct);
-      const { assets, totalEur } = await toEur(totals);
+      const { assets, totalEur } =
+        ex === "okx"
+          ? await okxBalances(env, acct)
+          : await krakenBalances(env, acct);
       return json(
         { account, assets, totalEur, updatedAt: Date.now() },
         200,

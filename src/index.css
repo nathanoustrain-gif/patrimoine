@@ -962,6 +962,39 @@ input[readonly] {
   color: var(--gold);
 }
 
+/* Détail des actifs d'un compte exchange */
+.holdings {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.holding-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.holding-row:last-child {
+  border-bottom: none;
+}
+.holding-row .hsym {
+  font-weight: 600;
+  color: var(--paper);
+  width: 72px;
+}
+.holding-row .hamt {
+  flex: 1;
+  color: var(--paper-dim);
+  text-align: right;
+}
+.holding-row .hval {
+  width: 92px;
+  text-align: right;
+  color: var(--paper);
+}
+
 /* Recherche crypto (CoinGecko) */
 .coin-results {
   margin-top: 8px;
