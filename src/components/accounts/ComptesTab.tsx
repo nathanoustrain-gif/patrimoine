@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Account } from "../../db/db";
-import { fmtEUR } from "../../lib/format";
+import { fmtEUR, fmtDate } from "../../lib/format";
 import { ACCOUNT_TYPES, accountValue } from "../../lib/patrimoine";
+import { syncExchangeAccounts, exchangeLabel } from "../../lib/exchanges";
 import Sheet from "../Sheet";
 import AccountForm from "./AccountForm";
 import { IconPlus } from "../Icons";
@@ -13,16 +14,28 @@ export default function ComptesTab() {
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   function flash(m: string) {
     setMsg(m);
-    setTimeout(() => setMsg(null), 2600);
+    setTimeout(() => setMsg(null), 3200);
+  }
+
+  async function syncExchanges() {
+    setSyncing(true);
+    const { updated, errors } = await syncExchangeAccounts();
+    setSyncing(false);
+    flash(
+      `${updated} compte(s) exchange à jour` +
+        (errors ? ` · ${errors} en erreur` : ""),
+    );
   }
 
   if (!accounts || !positions) return null;
 
   const own = accounts.filter((a) => !a.shared);
   const shared = accounts.filter((a) => a.shared);
+  const hasExchange = accounts.some((a) => a.exchange);
 
   function renderRow(a: Account) {
     return (
@@ -31,9 +44,24 @@ export default function ComptesTab() {
           <span className="nm">
             {a.name}
             {a.institution && <span className="inst"> · {a.institution}</span>}
+            {a.exchange && (
+              <span className="tag" style={{ marginLeft: 8 }}>
+                {exchangeLabel(a.exchange)}
+              </span>
+            )}
             {a.shared && (
               <span className="tag" style={{ marginLeft: 8 }}>
                 {a.sharedWith ? "Partagé · " + a.sharedWith : "Partagé"}
+              </span>
+            )}
+            {a.exchange && a.exchangeError && (
+              <span className="inst" style={{ color: "var(--loss)", display: "block" }}>
+                ⚠ {a.exchangeError}
+              </span>
+            )}
+            {a.exchange && !a.exchangeError && a.exchangeUpdated && (
+              <span className="inst" style={{ display: "block" }}>
+                maj {fmtDate(a.exchangeUpdated)}
               </span>
             )}
           </span>
@@ -51,6 +79,11 @@ export default function ComptesTab() {
             <IconPlus size={16} /> Ajouter un compte
           </span>
         </button>
+        {hasExchange && (
+          <button className="btn" onClick={syncExchanges} disabled={syncing}>
+            {syncing ? "Synchro…" : "Rafraîchir soldes"}
+          </button>
+        )}
       </div>
 
       {accounts.length === 0 ? (

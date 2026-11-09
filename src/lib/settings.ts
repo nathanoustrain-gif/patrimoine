@@ -24,4 +24,6 @@ export function useSetting<T = unknown>(key: string, fallback?: T): T | undefine
 export const SETTINGS_KEYS = {
   pokeApiKey: "pokeApiKey",
   twelveDataApiKey: "twelveDataApiKey",
+  cryptoWorkerUrl: "cryptoWorkerUrl",
+  cryptoWorkerToken: "cryptoWorkerToken",
 } as const;

@@ -21,6 +21,8 @@ export function typeColor(v: string): string {
  * dès qu'il en a au moins une ; sinon le solde de référence saisi à la main.
  */
 export function accountValue(account: Account, positions: Position[]): number {
+  // Compte exchange auto : valeur = dernier total récupéré via le Worker.
+  if (account.exchange) return account.exchangeValue || 0;
   if (account.type === "courtage" || account.type === "crypto") {
     const linked = positions.filter((p) => p.accountId === account.id);
     if (linked.length > 0) {

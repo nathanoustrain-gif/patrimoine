@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import OverviewTab from "../components/patrimoine/OverviewTab";
 import ComptesTab from "../components/accounts/ComptesTab";
 import BourseTab from "../components/bourse/BourseTab";
+import { syncExchangeAccounts } from "../lib/exchanges";
 
 type Tab = "overview" | "comptes" | "bourse";
 
@@ -13,6 +14,11 @@ const TABS: { key: Tab; label: string }[] = [
 
 export default function PatrimoinePage() {
   const [tab, setTab] = useState<Tab>("overview");
+
+  // Récupère les soldes des comptes exchange en arrière-plan à l'ouverture.
+  useEffect(() => {
+    syncExchangeAccounts();
+  }, []);
 
   return (
     <div>

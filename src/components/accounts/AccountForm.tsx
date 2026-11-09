@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { db, uid, type Account } from "../../db/db";
 import { ACCOUNT_TYPES } from "../../lib/patrimoine";
+import { EXCHANGE_ACCOUNTS } from "../../lib/exchanges";
 
 type Props = {
   initial?: Account;
@@ -18,14 +19,18 @@ export default function AccountForm({ initial, onDone, onDelete }: Props) {
   );
   const [shared, setShared] = useState(!!initial?.shared);
   const [sharedWith, setSharedWith] = useState(initial?.sharedWith ?? "");
+  const [exchange, setExchange] = useState(initial?.exchange ?? "");
   const [saving, setSaving] = useState(false);
 
-  const isTradable = type === "courtage" || type === "crypto";
+  const isCrypto = type === "crypto";
+  const isExchange = isCrypto && !!exchange;
+  const isTradable = type === "courtage" || (type === "crypto" && !exchange);
 
   async function submit(ev: React.FormEvent) {
     ev.preventDefault();
     if (!name.trim()) return;
     setSaving(true);
+    const exVal = isCrypto && exchange ? exchange : undefined;
     const account: Account = {
       id: initial?.id ?? uid(),
       name: name.trim(),
@@ -34,6 +39,14 @@ export default function AccountForm({ initial, onDone, onDelete }: Props) {
       balance: parseFloat(balance) || 0,
       shared,
       sharedWith: shared ? sharedWith.trim() || undefined : undefined,
+      exchange: exVal,
+      // conserve le cache si le compte reste lié au même exchange
+      exchangeValue:
+        exVal && exVal === initial?.exchange ? initial?.exchangeValue : undefined,
+      exchangeAssets:
+        exVal && exVal === initial?.exchange ? initial?.exchangeAssets : undefined,
+      exchangeUpdated:
+        exVal && exVal === initial?.exchange ? initial?.exchangeUpdated : undefined,
       createdAt: initial?.createdAt ?? Date.now(),
     };
     await db.accounts.put(account);
@@ -74,17 +87,40 @@ export default function AccountForm({ initial, onDone, onDelete }: Props) {
         </div>
       </div>
 
-      <div className="field">
-        <label>
-          {isTradable ? "Solde de référence (si aucune position)" : "Solde actuel (€)"}
-        </label>
-        <input
-          type="number"
-          step="0.01"
-          value={balance}
-          onChange={(e) => setBalance(e.target.value)}
-        />
-      </div>
+      {isCrypto && (
+        <div className="field">
+          <label>Exchange (soldes automatiques, optionnel)</label>
+          <select value={exchange} onChange={(e) => setExchange(e.target.value)}>
+            <option value="">Aucun (solde/positions manuels)</option>
+            {EXCHANGE_ACCOUNTS.map((e) => (
+              <option key={e.value} value={e.value}>
+                {e.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {!isExchange && (
+        <div className="field">
+          <label>
+            {isTradable ? "Solde de référence (si aucune position)" : "Solde actuel (€)"}
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            value={balance}
+            onChange={(e) => setBalance(e.target.value)}
+          />
+        </div>
+      )}
+
+      {isExchange && (
+        <p className="market-note" style={{ marginTop: -4 }}>
+          Le solde de ce compte sera récupéré automatiquement depuis l'exchange
+          (via ton backend crypto, configuré dans Réglages).
+        </p>
+      )}
 
       {isTradable && (
         <p className="market-note" style={{ marginTop: -4 }}>

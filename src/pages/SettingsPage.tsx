@@ -7,10 +7,18 @@ const TABLES = ["cards", "sealed", "snapshots", "settings"] as const;
 export default function SettingsPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [tdKey, setTdKey] = useState("");
+  const [workerUrl, setWorkerUrl] = useState("");
+  const [workerToken, setWorkerToken] = useState("");
 
   useEffect(() => {
     getSetting<string>(SETTINGS_KEYS.twelveDataApiKey, "").then((v) =>
       setTdKey(v ?? ""),
+    );
+    getSetting<string>(SETTINGS_KEYS.cryptoWorkerUrl, "").then((v) =>
+      setWorkerUrl(v ?? ""),
+    );
+    getSetting<string>(SETTINGS_KEYS.cryptoWorkerToken, "").then((v) =>
+      setWorkerToken(v ?? ""),
     );
   }, []);
 
@@ -22,6 +30,12 @@ export default function SettingsPage() {
   async function saveTdKey() {
     await setSetting(SETTINGS_KEYS.twelveDataApiKey, tdKey.trim());
     flash("Clé Twelve Data enregistrée");
+  }
+
+  async function saveCrypto() {
+    await setSetting(SETTINGS_KEYS.cryptoWorkerUrl, workerUrl.trim());
+    await setSetting(SETTINGS_KEYS.cryptoWorkerToken, workerToken.trim());
+    flash("Backend crypto enregistré");
   }
 
   async function exportBackup() {
@@ -91,6 +105,35 @@ export default function SettingsPage() {
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
           <button className="btn primary" onClick={saveTdKey}>
+            Enregistrer
+          </button>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="section">Backend crypto (Cloudflare Worker)</h2>
+        <p style={{ color: "var(--paper-dim)", fontSize: 13.5, marginTop: 0, marginBottom: 16 }}>
+          Pour récupérer automatiquement tes soldes OKX / Kraken. Colle l'URL de
+          ton Worker et le jeton (CLIENT_TOKEN) que tu as défini.
+        </p>
+        <div className="field">
+          <label>URL du Worker</label>
+          <input
+            value={workerUrl}
+            onChange={(e) => setWorkerUrl(e.target.value)}
+            placeholder="https://patrimoine-crypto.xxx.workers.dev"
+          />
+        </div>
+        <div className="field">
+          <label>Jeton (CLIENT_TOKEN)</label>
+          <input
+            value={workerToken}
+            onChange={(e) => setWorkerToken(e.target.value)}
+            placeholder="ton jeton"
+          />
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+          <button className="btn primary" onClick={saveCrypto}>
             Enregistrer
           </button>
         </div>

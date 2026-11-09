@@ -82,6 +82,12 @@ export interface Account {
   /** compte partagé : exclu du patrimoine total, affiché à part */
   shared?: boolean;
   sharedWith?: string;
+  /** compte exchange auto (ex. "okx-me") : solde récupéré via le Worker */
+  exchange?: string;
+  exchangeValue?: number; // dernier total EUR récupéré
+  exchangeAssets?: { symbol: string; amount: number; eur: number | null }[];
+  exchangeUpdated?: number; // timestamp de la dernière récupération
+  exchangeError?: string; // dernier message d'erreur (si échec)
   createdAt: number;
 }
 
